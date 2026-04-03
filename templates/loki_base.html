@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <a class="nav-link active" href="/plugins/ctfd-loki/admin/settings">
+            <i class="fas fa-cog me-1"></i> Settings
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/plugins/ctfd-loki/admin/containers">
+            <i class="fas fa-box me-1"></i> Containers
+          </a>
+        </li>
+      </ul>
+      {% block loki_content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}

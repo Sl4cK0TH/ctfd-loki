@@ -1,0 +1,215 @@
+{% extends "loki_base.html" %}
+
+{% block loki_content %}
+<div class="card shadow-sm">
+  <div class="card-header">
+    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Loki — Plugin Settings</h5>
+  </div>
+  <div class="card-body">
+    <form id="loki-settings-form">
+
+      <!-- ── Docker ──────────────────────────────────────── -->
+      <h6 class="text-muted mb-3">Docker Configuration</h6>
+
+      <div class="mb-3">
+        <label class="form-label">Docker API URL</label>
+        <input type="text" class="form-control" name="docker_api_url"
+               value="{{ get_config('loki:docker_api_url') or 'unix:///var/run/docker.sock' }}">
+        <div class="form-text">e.g. <code>unix:///var/run/docker.sock</code> or <code>tcp://192.168.1.100:2376</code></div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Container Timeout (seconds)</label>
+          <input type="number" class="form-control" name="docker_timeout"
+                 value="{{ get_config('loki:docker_timeout') or '3600' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Max Containers</label>
+          <input type="number" class="form-control" name="docker_max_containers"
+                 value="{{ get_config('loki:docker_max_containers') or '100' }}">
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Max Renewals</label>
+          <input type="number" class="form-control" name="docker_max_renew_count"
+                 value="{{ get_config('loki:docker_max_renew_count') or '5' }}">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Custom DNS</label>
+          <input type="text" class="form-control" name="docker_dns"
+                 value="{{ get_config('loki:docker_dns') or '' }}"
+                 placeholder="Comma-separated, e.g. 8.8.8.8,1.1.1.1">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Auto-connect Network</label>
+          <input type="text" class="form-control" name="docker_auto_connect_network"
+                 value="{{ get_config('loki:docker_auto_connect_network') or '' }}"
+                 placeholder="Docker network name (optional)">
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- ── Runtime Security ───────────────────────────── -->
+      <h6 class="text-muted mb-3">Runtime Security</h6>
+
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Read-only Root Filesystem</label>
+          <select class="form-select" name="docker_security_read_only_rootfs">
+            <option value="0" {{ 'selected' if get_config('loki:docker_security_read_only_rootfs') != '1' }}>Disabled</option>
+            <option value="1" {{ 'selected' if get_config('loki:docker_security_read_only_rootfs') == '1' }}>Enabled</option>
+          </select>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Drop All Linux Capabilities</label>
+          <select class="form-select" name="docker_security_drop_all_caps">
+            <option value="1" {{ 'selected' if get_config('loki:docker_security_drop_all_caps') != '0' }}>Enabled</option>
+            <option value="0" {{ 'selected' if get_config('loki:docker_security_drop_all_caps') == '0' }}>Disabled</option>
+          </select>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">No New Privileges</label>
+          <select class="form-select" name="docker_security_no_new_privileges">
+            <option value="1" {{ 'selected' if get_config('loki:docker_security_no_new_privileges') != '0' }}>Enabled</option>
+            <option value="0" {{ 'selected' if get_config('loki:docker_security_no_new_privileges') == '0' }}>Disabled</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">PIDs Limit</label>
+          <input type="number" class="form-control" name="docker_security_pids_limit"
+                 value="{{ get_config('loki:docker_security_pids_limit') or '256' }}"
+                 min="1">
+          <div class="form-text">Limits process count inside each challenge container.</div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">/tmp tmpfs Size</label>
+          <input type="text" class="form-control" name="docker_security_tmpfs_size"
+                 value="{{ get_config('loki:docker_security_tmpfs_size') or '64m' }}"
+                 placeholder="e.g. 64m (leave empty to disable)">
+          <div class="form-text">Writable tmpfs mounted at /tmp with noexec,nosuid,nodev.</div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- ── Scoping & Flags ─────────────────────────────── -->
+      <h6 class="text-muted mb-3">Containers & Flags</h6>
+
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Container Scope</label>
+          <select class="form-select" name="container_scope">
+            <option value="user" {{ 'selected' if get_config('loki:container_scope') == 'user' or not get_config('loki:container_scope') }}>Per User</option>
+            <option value="team" {{ 'selected' if get_config('loki:container_scope') == 'team' }}>Per Team</option>
+          </select>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Default Flag Mode</label>
+          <select class="form-select" name="flag_mode_default">
+            <option value="static" {{ 'selected' if get_config('loki:flag_mode_default') != 'dynamic' }}>Static</option>
+            <option value="dynamic" {{ 'selected' if get_config('loki:flag_mode_default') == 'dynamic' }}>Dynamic</option>
+          </select>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Rate Limit (seconds)</label>
+          <input type="number" class="form-control" name="rate_limit_seconds"
+                 value="{{ get_config('loki:rate_limit_seconds') or '60' }}">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Default Flag Template (Jinja2)</label>
+        <input type="text" class="form-control font-monospace" name="flag_template"
+               value="{{ get_config('loki:flag_template') or 'flag{' + '{' + '{ uuid.uuid4()|string }' + '}' + '}' }}">
+      </div>
+
+      <hr>
+
+      <!-- ── Backend ─────────────────────────────────────── -->
+      <h6 class="text-muted mb-3">Backend</h6>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Container Backend</label>
+          <select class="form-select" name="backend">
+            <option value="docker" {{ 'selected' if get_config('loki:backend') != 'swarm' }}>Docker (standalone)</option>
+            <option value="swarm" disabled>Docker Swarm (Phase 2)</option>
+          </select>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Router</label>
+          <select class="form-select" name="router">
+            <option value="direct" {{ 'selected' if get_config('loki:router') != 'traefik' }}>Direct Port Mapping</option>
+            <option value="traefik" disabled>Traefik (Phase 2)</option>
+            <option value="frp" disabled>frp (Phase 2)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="text-end">
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save me-1"></i> Save Settings
+        </button>
+      </div>
+    </form>
+
+    <div id="loki-settings-msg" class="alert mt-3" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+document.getElementById('loki-settings-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var form = this;
+  var data = {};
+  var inputs = form.querySelectorAll('input, select');
+  for (var i = 0; i < inputs.length; i++) {
+    data[inputs[i].name] = inputs[i].value;
+  }
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('PATCH', '/api/v1/configs', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
+
+  var updates = [];
+  for (var key in data) {
+    updates.push({key: 'loki:' + key, value: data[key]});
+  }
+
+  // Send each config update
+  var completed = 0;
+  var errors = [];
+  updates.forEach(function(item) {
+    var req = new XMLHttpRequest();
+    req.open('PATCH', '/api/v1/configs/' + encodeURIComponent(item.key), true);
+    req.setRequestHeader('Content-Type', 'application/json');
+    req.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
+    req.onload = function() {
+      completed++;
+      if (req.status >= 400) errors.push(item.key);
+      if (completed === updates.length) {
+        var msg = document.getElementById('loki-settings-msg');
+        if (errors.length === 0) {
+          msg.className = 'alert alert-success mt-3';
+          msg.innerText = 'Settings saved successfully!';
+        } else {
+          msg.className = 'alert alert-danger mt-3';
+          msg.innerText = 'Error saving: ' + errors.join(', ');
+        }
+        msg.style.display = '';
+        setTimeout(function(){ msg.style.display = 'none'; }, 3000);
+      }
+    };
+    req.send(JSON.stringify({value: item.value}));
+  });
+});
+</script>
+{% endblock %}

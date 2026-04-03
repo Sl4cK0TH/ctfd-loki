@@ -1,0 +1,56 @@
+<!-- CTFd LOKI — Player Challenge View -->
+
+<div id="loki-container-panel" class="mb-4">
+
+  <!-- ── Action Buttons ──────────────────────────────────── -->
+  <div class="text-center mb-3">
+    <button id="loki-start-btn" class="btn btn-outline-success btn-lg" onclick="lokiStart()">
+      <i class="fas fa-play me-1"></i> Start Instance
+    </button>
+    <button id="loki-stop-btn" class="btn btn-outline-danger btn-lg" style="display:none;" onclick="lokiStop()">
+      <i class="fas fa-stop me-1"></i> Stop Instance
+    </button>
+    <button id="loki-renew-btn" class="btn btn-outline-warning btn-lg" style="display:none;" onclick="lokiRenew()">
+      <i class="fas fa-sync me-1"></i> Renew
+    </button>
+  </div>
+
+  <!-- ── Loading Spinner ─────────────────────────────────── -->
+  <div id="loki-spinner" class="text-center my-3" style="display:none;">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading…</span>
+    </div>
+    <p class="text-muted mt-2">Working…</p>
+  </div>
+
+  <!-- ── Connection Info ─────────────────────────────────── -->
+  <div id="loki-connection" class="alert alert-info mx-auto" style="display:none; max-width:600px;">
+    <h6 class="alert-heading mb-2"><i class="fas fa-terminal me-1"></i> Connection</h6>
+    <pre id="loki-access" class="mb-1 user-select-all" style="cursor:pointer;"
+         onclick="lokiCopy(this)" title="Click to copy"></pre>
+    <hr class="my-2">
+    <div class="d-flex justify-content-between align-items-center">
+      <small class="text-muted">
+        <i class="fas fa-clock me-1"></i>
+        Time remaining: <strong id="loki-timer">--:--</strong>
+      </small>
+      <small class="text-muted">
+        Renewed: <span id="loki-renew-count">0</span> times
+      </small>
+    </div>
+  </div>
+
+  <!-- ── Error ───────────────────────────────────────────── -->
+  <div id="loki-error" class="alert alert-danger mx-auto text-center" style="display:none; max-width:600px;"></div>
+
+</div>
+
+<!-- ── Flag Submission ───────────────────────────────────── -->
+<form id="challenge-submit-form" class="mt-3">
+  <div class="input-group mx-auto" style="max-width:600px;">
+    <input type="text" class="form-control" id="challenge-input" name="answer" placeholder="flag{...}">
+    <button type="submit" class="btn btn-success">
+      <i class="fas fa-flag me-1"></i> Submit
+    </button>
+  </div>
+</form>

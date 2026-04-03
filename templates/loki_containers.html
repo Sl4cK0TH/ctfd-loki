@@ -1,0 +1,111 @@
+{% extends "loki_base.html" %}
+
+{% block loki_content %}
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0"><i class="fas fa-box me-2"></i>Loki — Running Containers</h5>
+    <span class="badge bg-primary">{{ containers|length }} active</span>
+  </div>
+  <div class="card-body p-0">
+    {% if containers|length > 0 %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>User</th>
+            <th>Challenge</th>
+            <th>Container</th>
+            <th>Port</th>
+            <th>Started</th>
+            <th>Remaining</th>
+            <th>Renewals</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in containers %}
+          <tr id="row-{{ c.id }}">
+            <td>
+              <strong>{{ c.user_name }}</strong>
+              <br><small class="text-muted">ID: {{ c.user_id }}{% if c.team_id %} / Team: {{ c.team_id }}{% endif %}</small>
+            </td>
+            <td>{{ c.challenge_name }}</td>
+            <td><code>{{ c.container_id }}</code></td>
+            <td><span class="badge bg-secondary">{{ c.port }}</span></td>
+            <td><small>{{ c.start_time }}</small></td>
+            <td>
+              {% if c.remaining > 0 %}
+                <span class="badge bg-success">{{ (c.remaining / 60)|int }}m</span>
+              {% else %}
+                <span class="badge bg-danger">Expired</span>
+              {% endif %}
+            </td>
+            <td>{{ c.renew_count }}</td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-warning" onclick="lokiAdminRenew({{ c.id }})"
+                      title="Renew">
+                <i class="fas fa-sync"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="lokiAdminDestroy({{ c.id }})"
+                      title="Destroy">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pages > 1 %}
+    <nav class="d-flex justify-content-center mt-3 mb-3">
+      <ul class="pagination pagination-sm mb-0">
+        {% for p in range(1, pages + 1) %}
+        <li class="page-item {{ 'active' if p == curr_page }}">
+          <a class="page-link" href="?page={{ p }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="fas fa-box-open fa-3x mb-3"></i>
+      <p>No containers are currently running.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function lokiAdminRenew(containerId) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('PATCH', '/api/v1/plugins/ctfd-loki/admin/container?container_id=' + containerId, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
+  xhr.onload = function() {
+    if (xhr.status === 200) {
+      location.reload();
+    } else {
+      alert('Failed to renew');
+    }
+  };
+  xhr.send();
+}
+
+function lokiAdminDestroy(containerId) {
+  if (!confirm('Destroy this container?')) return;
+  var xhr = new XMLHttpRequest();
+  xhr.open('DELETE', '/api/v1/plugins/ctfd-loki/admin/container?container_id=' + containerId, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
+  xhr.onload = function() {
+    var row = document.getElementById('row-' + containerId);
+    if (row) row.remove();
+  };
+  xhr.send();
+}
+</script>
+{% endblock %}
