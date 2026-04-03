@@ -125,8 +125,13 @@ Auto-cleanup (every 30s)
 |---|---|
 | CTFd | The version in this repository |
 | Python | 3.10+ |
+| Flask | 2.2.5 (inherited from CTFd) |
 | Docker | Installed and accessible to the CTFd process |
 | Docker Socket | `/var/run/docker.sock` or TCP endpoint |
+
+Note:
+- Loki does not pin or override Flask directly.
+- Flask version is controlled by CTFd requirements (`CTFd/requirements.txt`), currently `flask==2.2.5`.
 
 ### Option A: Install Inside This Workspace's CTFd
 
