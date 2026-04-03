@@ -8,6 +8,7 @@ Designed for single-host deployments (no Swarm required).
 
 import logging
 import random
+import re
 import string
 
 import docker
@@ -74,12 +75,54 @@ class DockerBackend(BackendBase):
         return "".join(random.choice(chars) for _ in range(length))
 
     @staticmethod
+    def _derive_ssh_password(container_record):
+        """Deterministic per-instance SSH password from container UUID."""
+        token = str(container_record.uuid or "").replace("-", "")
+        if len(token) >= 10:
+            return token[:10]
+        return "f068c7da"
+
+    @staticmethod
     def _as_bool(value):
         if isinstance(value, bool):
             return value
         if value is None:
             return False
         return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
+    def _normalize_image_ref(image):
+        """Return a sanitized Docker image reference or raise a clear error."""
+        image_ref = str(image or "").strip()
+        if not image_ref:
+            raise RuntimeError(
+                "Docker image is empty. Set a valid image like "
+                "'rsuctf/chall-01-emacs:latest'."
+            )
+
+        # Common copy/paste mistakes from docs/CLI snippets.
+        image_ref = re.sub(r"^docker\s+(run|pull)\s+", "", image_ref, flags=re.I)
+        image_ref = image_ref.strip().strip('"').strip("'")
+
+        if " " in image_ref or "\t" in image_ref or "\n" in image_ref:
+            raise RuntimeError(
+                "Docker image contains whitespace. Use only the image reference, "
+                "for example 'rsuctf/chall-01-emacs:latest'."
+            )
+
+        if image_ref.lower() != image_ref:
+            raise RuntimeError(
+                "Docker image must be lowercase. Example: "
+                "'rsuctf/chall-01-emacs:latest'."
+            )
+
+        if image_ref.startswith("http://") or image_ref.startswith("https://"):
+            raise RuntimeError(
+                "Docker image should not include a URL scheme. Use "
+                "'registry/repository:tag'."
+            )
+
+        return image_ref
 
     # ── BackendBase implementation ───────────────────────────────
 
@@ -89,10 +132,16 @@ class DockerBackend(BackendBase):
         a random port mapping.
         """
         client = self._get_client()
+        image_ref = self._normalize_image_ref(challenge.docker_image)
         internal_port = challenge.redirect_port or 22
         memory = self._parse_memory_limit(challenge.memory_limit)
         cpu_nano = int((challenge.cpu_limit or 0.5) * 1e9)
-        password = self._random_password()
+        redirect_type = (challenge.redirect_type or "").strip().lower()
+        password = (
+            self._derive_ssh_password(container_record)
+            if redirect_type == "ssh"
+            else self._random_password()
+        )
 
         env = {"CHALLENGE_PASSWORD": password}
         if container_record.flag:
@@ -123,7 +172,7 @@ class DockerBackend(BackendBase):
             pids_limit = 256
 
         run_kwargs = {
-            "image": challenge.docker_image,
+            "image": image_ref,
             "name": f"loki-{container_record.user_id}-{container_record.uuid[:12]}",
             "detach": True,
             "ports": {f"{internal_port}/tcp": None},
@@ -142,6 +191,19 @@ class DockerBackend(BackendBase):
 
         if drop_all_caps:
             run_kwargs["cap_drop"] = ["ALL"]
+
+            # SSH-based challenges need a few capabilities for chpasswd and
+            # sshd preauth/session setup while still dropping everything else.
+            if redirect_type == "ssh":
+                run_kwargs["cap_add"] = [
+                    "SYS_CHROOT",
+                    "SETUID",
+                    "SETGID",
+                    "CHOWN",
+                    "DAC_OVERRIDE",
+                    "FOWNER",
+                    "AUDIT_WRITE",
+                ]
 
         if no_new_privileges:
             run_kwargs["security_opt"] = ["no-new-privileges"]
@@ -170,6 +232,17 @@ class DockerBackend(BackendBase):
                 log.warning("Network %s not found, skipping", network_name)
 
         return container.id, host_port
+
+    def get_connection_info(self, challenge, container_record):
+        redirect_type = (challenge.redirect_type or "").strip().lower()
+        if redirect_type == "ssh":
+            user = challenge.ssh_user or "ctf"
+            password = self._derive_ssh_password(container_record)
+            return (
+                f"ssh -p {container_record.port} {user}@{{SERVER_IP}}\n"
+                f"Password: {password}"
+            )
+        return super().get_connection_info(challenge, container_record)
 
     def remove_container(self, container_record):
         """Stop and remove the container, tolerating 'not found'."""

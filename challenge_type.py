@@ -58,6 +58,7 @@ class LokiChallengeType(BaseChallenge):
     @classmethod
     def create(cls, request):
         data = request.form or request.get_json()
+        docker_image = str(data.get("docker_image", "")).strip()
         challenge = LokiChallenge(
             name=data["name"],
             description=data.get("description", ""),
@@ -66,7 +67,7 @@ class LokiChallengeType(BaseChallenge):
             state=data.get("state", "visible"),
             type="loki",
             # Container fields
-            docker_image=data.get("docker_image", ""),
+            docker_image=docker_image,
             redirect_port=int(data.get("redirect_port", 22)),
             redirect_type=data.get("redirect_type", "ssh"),
             ssh_user=data.get("ssh_user", "ctf"),
@@ -132,6 +133,8 @@ class LokiChallengeType(BaseChallenge):
                 value = _to_int_bool(value)
             elif attr == "cpu_limit":
                 value = float(value)
+            elif attr == "docker_image":
+                value = str(value or "").strip()
             setattr(challenge, attr, value)
 
         db.session.commit()
@@ -153,18 +156,9 @@ class LokiChallengeType(BaseChallenge):
             pass
         LokiContainer.query.filter_by(challenge_id=challenge.id).delete()
 
-        # Standard CTFd cleanup
-        Fails.query.filter_by(challenge_id=challenge.id).delete()
-        Solves.query.filter_by(challenge_id=challenge.id).delete()
-        Flags.query.filter_by(challenge_id=challenge.id).delete()
-        files = ChallengeFiles.query.filter_by(challenge_id=challenge.id).all()
-        for f in files:
-            delete_file(f.id)
-        ChallengeFiles.query.filter_by(challenge_id=challenge.id).delete()
-        Tags.query.filter_by(challenge_id=challenge.id).delete()
-        Hints.query.filter_by(challenge_id=challenge.id).delete()
-        LokiChallenge.query.filter_by(id=challenge.id).delete()
-        db.session.commit()
+        # Delegate to CTFd's base cleanup to keep behavior aligned with the
+        # running CTFd version and ensure parent/child challenge rows are removed.
+        super(LokiChallengeType, cls).delete(challenge)
 
     # ── Attempt (flag checking) ──────────────────────────────────
 

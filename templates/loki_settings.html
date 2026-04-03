@@ -130,6 +130,19 @@
           <input type="number" class="form-control" name="rate_limit_seconds"
                  value="{{ get_config('loki:rate_limit_seconds') or '60' }}">
         </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Start Delay (seconds)</label>
+          <input type="number" class="form-control" name="ui_start_delay_seconds"
+                 value="{{ get_config('loki:ui_start_delay_seconds') or '3' }}" min="0">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Stop Delay (seconds)</label>
+          <input type="number" class="form-control" name="ui_stop_delay_seconds"
+                 value="{{ get_config('loki:ui_stop_delay_seconds') or '2' }}" min="0">
+        </div>
       </div>
 
       <div class="mb-3">

@@ -108,6 +108,16 @@ def _resolve_public_host():
     return "127.0.0.1"
 
 
+def _is_container_running(container):
+    """Best-effort running-state check against the backend runtime."""
+    try:
+        backend = get_backend()
+        return backend.is_running(container)
+    except Exception as exc:
+        log.warning("Container state check failed for %s: %s", container.id, exc)
+        return False
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  ADMIN ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════
@@ -218,6 +228,12 @@ class UserContainers(Resource):
         if not container:
             return {"success": True, "data": {}}
 
+        # Cleanup stale DB records if container no longer exists/runs.
+        if not _is_container_running(container):
+            db.session.delete(container)
+            db.session.commit()
+            return {"success": True, "data": {}}
+
         # Verify the container belongs to the requested challenge
         if int(container.challenge_id) != int(challenge_id):
             chal_name = container.challenge.name if container.challenge else "another"
@@ -258,6 +274,13 @@ class UserContainers(Resource):
 
         # Block if an instance is already running. User must stop it first.
         existing = _get_existing_container(user_id, team_id)
+        if existing:
+            # Recover from stale records that can block restart.
+            if not _is_container_running(existing):
+                db.session.delete(existing)
+                db.session.commit()
+                existing = None
+
         if existing:
             if int(existing.challenge_id) == int(challenge_id):
                 abort(
@@ -310,7 +333,15 @@ class UserContainers(Resource):
             log.error("Container creation failed: %s", exc)
             abort(500, f"Failed to start instance: {exc}", success=False)
 
-        return {"success": True, "message": "Instance started"}
+        start_delay = int(get_loki_config("ui_start_delay_seconds", "3"))
+        if start_delay < 0:
+            start_delay = 0
+
+        return {
+            "success": True,
+            "message": "Instance started",
+            "data": {"start_delay_seconds": start_delay},
+        }
 
     # ── PATCH: renew ─────────────────────────────────────────────
 
@@ -362,4 +393,12 @@ class UserContainers(Resource):
 
         db.session.delete(container)
         db.session.commit()
-        return {"success": True, "message": "Instance destroyed"}
+        stop_delay = int(get_loki_config("ui_stop_delay_seconds", "2"))
+        if stop_delay < 0:
+            stop_delay = 0
+
+        return {
+            "success": True,
+            "message": "Instance destroyed",
+            "data": {"stop_delay_seconds": stop_delay},
+        }

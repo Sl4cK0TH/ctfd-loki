@@ -35,6 +35,9 @@ DEFAULTS = {
     "router": "direct",   # Phase 2: "traefik", "frp"
     # ── Rate limiting ────────────────────────────────────────
     "rate_limit_seconds": "60",
+    # ── UI timing ─────────────────────────────────────────────
+    "ui_start_delay_seconds": "3",
+    "ui_stop_delay_seconds": "2",
 }
 
 

@@ -82,7 +82,7 @@ Auto-cleanup (every 30s)
 
 ---
 
-## Installation
+## Installation Guide
 
 ### Prerequisites
 
@@ -93,7 +93,39 @@ Auto-cleanup (every 30s)
 | Docker | Installed and accessible to the CTFd process |
 | Docker Socket | `/var/run/docker.sock` or TCP endpoint |
 
-### Steps
+### Option A: Install Inside This Workspace's CTFd
+
+Use this if your CTFd source is in this repo under `CTFd/`.
+
+1. **Install plugin dependencies in the CTFd environment:**
+   ```bash
+   pip install -r plugins/ctfd-loki/requirements.txt
+   ```
+
+2. **Place the plugin in CTFd's plugin directory:**
+   ```bash
+   cp -r plugins/ctfd-loki CTFd/CTFd/plugins/ctfd-loki
+   ```
+
+3. **If CTFd runs in Docker, mount the Docker socket in the `ctfd` service:**
+   ```yaml
+   volumes:
+     - /var/run/docker.sock:/var/run/docker.sock
+   ```
+
+4. **Restart CTFd:**
+   ```bash
+   cd CTFd
+   docker compose restart ctfd nginx
+   ```
+
+5. **Verify plugin load in admin UI:**
+   - Open **Admin -> Plugins -> Loki**
+   - Open **Admin -> Challenges -> New** and confirm challenge type **loki** appears
+
+### Option B: Install Into an External CTFd Instance
+
+Use this if your CTFd deployment is elsewhere.
 
 1. **Install Python dependencies:**
    ```bash
@@ -123,6 +155,18 @@ Auto-cleanup (every 30s)
    - Visit **Admin → Plugins → Loki** in the sidebar
    - Create a new challenge and check for the **"loki"** type
 
+### First-Run Checklist
+
+After installation, configure these before creating challenges:
+
+1. In **Admin -> Loki -> Settings**, set:
+   - Docker API URL
+   - Public Host (recommended if behind reverse proxy)
+   - Container Scope (`user` or `team`)
+   - Runtime Security options
+2. Save settings.
+3. Restart CTFd once if Docker API URL or major runtime settings changed.
+
 ---
 
 ## Configuration
@@ -148,12 +192,24 @@ All settings are managed through the **Admin → Loki → Settings** page.
 | Backend | `docker` | Container backend (Swarm planned) |
 | Router | `direct` | Routing method (Traefik/frp planned) |
 | Rate Limit | `60` seconds | Cooldown between container operations |
+| Start Delay | `3` seconds | Wait before showing connection info after spawn |
+| Stop Delay | `2` seconds | Wait before marking instance stopped in UI |
 
 ---
 
-## Usage
+## Usage Documentation
 
-### For Admins
+### Admin Workflow
+
+#### 1) Build and prepare challenge image
+
+Image requirements:
+- Runs one foreground service
+- Exposes the internal service port
+- Accepts `CHALLENGE_PASSWORD`
+- Optionally consumes `FLAG` for dynamic-flag mode
+
+#### 2) Create a Loki challenge
 
 1. **Go to Admin → Challenges → Create Challenge**
 2. **Select type: `loki`**
@@ -169,24 +225,51 @@ All settings are managed through the **Admin → Loki → Settings** page.
    - **Dynamic** → each instance generates a unique flag from the template
 6. **Save**
 
-### For Players
+#### 3) Validate before publishing
+
+1. Start an instance as admin test account.
+2. Verify connection string works.
+3. Verify renew and stop work.
+4. If HTTP challenge: confirm URL uses expected public host.
+5. If SSH challenge: verify login with shown password.
+
+### Player Workflow
 
 1. Open the challenge
 2. Click **Start Instance** → container spins up in ~3 seconds
-3. Connection info appears with a copy button:
+3. Connection info appears with copy controls:
    ```
    ssh -p 49152 ctf@<SERVER_IP>
    ```
+   For SSH challenges, Loki also shows the password for that instance.
 4. Solve the challenge in your personal instance
 5. Submit the flag
 6. Click **Stop Instance** when done (or wait for auto-cleanup)
 
-### Container Management (Admin)
+### Admin Container Management
 
 Visit **Admin → Loki → Containers** to:
 - View all running containers with user, challenge, port, and remaining time
 - **Renew** any container (bypass renewal limits)
 - **Destroy** any container immediately
+
+### Common Operations
+
+#### Remove old challenge containers
+```bash
+docker ps -a --filter ancestor=rsuctf/chall-01-emacs:latest -q | xargs -r docker rm -f
+```
+
+#### Inspect active instance password (debug)
+```bash
+CID=<container_id>
+docker inspect "$CID" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep CHALLENGE_PASSWORD
+```
+
+#### Check live instance logs
+```bash
+docker logs -f <container_id>
+```
 
 ---
 

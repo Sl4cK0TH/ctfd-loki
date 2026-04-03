@@ -19,9 +19,22 @@
       <div class="card-body">
         <h5 class="card-title">Instance Info</h5>
         <h6 class="card-subtitle mb-2 text-muted">
-          Remaining Time: <span id="loki-challenge-count-down"></span>s
+          Remaining Time: <span id="loki-challenge-count-down"></span>
         </h6>
-        <p id="loki-challenge-user-access" class="card-text user-select-all"></p>
+        <div id="loki-connection-group" class="mb-2">
+          <p class="card-text mb-1"><strong>Connection</strong></p>
+          <div class="input-group">
+            <input id="loki-connection-command" type="text" class="form-control user-select-all" readonly>
+            <button class="btn btn-outline-secondary" type="button" id="loki-copy-connection">Copy</button>
+          </div>
+        </div>
+        <div id="loki-password-group" class="mb-2" style="display:none;">
+          <p class="card-text mb-1"><strong>Password</strong></p>
+          <div class="input-group">
+            <input id="loki-connection-password" type="text" class="form-control user-select-all" readonly>
+            <button class="btn btn-outline-secondary" type="button" id="loki-copy-password">Copy</button>
+          </div>
+        </div>
         <p class="card-text text-muted">
           Renewed: <span id="loki-renew-count">0</span>
         </p>

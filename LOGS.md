@@ -178,3 +178,106 @@ All timestamps are in UTC+8 (Asia/Manila).
 	- Loki-specific fields are injected via overridden blocks, preserving CTFd's expected form wiring.
 - Added markdown preview handlers in `assets/create.js` and `assets/update.js` using `window.challenge.render(...)` when preview tabs are selected.
 - Expected result: create/update forms render correctly, action buttons work, and description preview renders markdown.
+
+### 06:40 — Restart Reliability + Start/Stop Delay Controls
+- Issue reported: stop then immediate start could fail; user requested explicit delay before showing connection info on start and after stop.
+- Root-cause identified:
+	- Session rate limit used a single shared key for all actions; `DELETE` could throttle the next `POST`.
+	- API status returned DB record without verifying runtime state, allowing stale rows to block restart and display stale info.
+- Fixes applied:
+	- `decorators.py`: rate limiting is now action-specific (`loki_last_action_<method>`), so stop no longer blocks immediate start by sharing one timestamp bucket.
+	- `api.py`:
+		- Added backend running-state verification in `GET /container`; stale records are auto-cleaned and no connection info is returned.
+		- Added stale-record recovery in `POST /container` before enforcing running-instance block.
+		- `POST /container` now returns configured `start_delay_seconds`.
+		- `DELETE /container` now returns configured `stop_delay_seconds`.
+	- `assets/view.js`: added delayed status refresh flow so UI waits before showing started/stopped state and keeps action buttons disabled during transitions.
+	- `config.py` + `templates/loki_settings.html`: added configurable `ui_start_delay_seconds` and `ui_stop_delay_seconds`.
+	- `README.md`: documented the new delay settings.
+- Expected result:
+	- Stop/start lifecycle is reliable even when users act quickly.
+	- Connection info is shown only after the configured start delay and only when the container is actually running.
+	- Stop action waits for configured delay before UI returns to stopped state.
+
+### 06:55 — Player Card UX + Reopen State Stability Fix
+- Issue reported: requested mm:ss timer, click-to-copy connection info, stop/renew controls not working, and active instance disappearing when closing/reopening challenge card.
+- Root-cause identified:
+	- In transition flow, action buttons could remain disabled after start completed.
+	- On transient status fetch errors, UI forced stopped state and hid active instance details.
+- Fixes applied in `assets/view.js` and `assets/view.html`:
+	- Remaining time now renders as `Xm YYs`.
+	- Connection text is clickable and copies to clipboard.
+	- Action buttons are re-enabled when started state is confirmed.
+	- Status refresh now ignores transient fetch errors instead of force-hiding active instance info.
+	- Added guard to skip status fetch until challenge context is available.
+- Expected result:
+	- Stop/Renew remain usable after start.
+	- Reopening the challenge card no longer makes an active instance disappear due temporary fetch issues.
+
+### 07:05 — Admin Challenge Delete Fix
+- Issue reported: Loki challenges could not be deleted from admin challenge pages.
+- Root-cause: Loki custom `delete()` path manually deleted child rows and skipped the canonical base challenge deletion flow, which can leave parent challenge state inconsistent on latest CTFd.
+- Fix applied in `challenge_type.py`:
+	- Keep Loki-specific pre-cleanup: remove challenge containers and delete `LokiContainer` rows.
+	- Delegate final challenge cleanup to CTFd base implementation via `super(...).delete(challenge)`.
+- Expected result: delete works from admin challenge UI and removes challenge records consistently with core CTFd behavior.
+
+### 07:20 — Invalid Docker Image Reference Hardening
+- Issue reported while testing `chall-01-emacs`: start failed with Docker API error `invalid reference format`.
+- Root-cause: challenge Docker image value in Loki form can contain invalid formatting (uppercase, whitespace, copied CLI prefixes), which Docker rejects at container-create time.
+- Fixes applied:
+	- `backends/docker_backend.py` now normalizes and validates `docker_image` before `containers.run(...)`.
+	- Added clear runtime errors for common mistakes (empty image, uppercase letters, whitespace, URL scheme).
+	- `challenge_type.py` now trims `docker_image` on create and update so accidental spaces/newlines are not stored.
+- Expected result: users get actionable image-format errors and valid image references start normally.
+
+### 07:30 — SSH Container Compatibility Under Runtime Hardening
+- Issue reported: SSH to Loki instance for `chall-01-emacs` immediately closed.
+- Runtime evidence from container logs:
+	- `chpasswd ... Authentication token manipulation error`
+	- `chroot("/run/sshd"): Operation not permitted [preauth]`
+- Root-cause: Loki global hardening (`cap_drop=ALL`, `no-new-privileges`) removed capabilities required by SSH-based images using `chpasswd` and OpenSSH privilege separation.
+- Fix applied in `backends/docker_backend.py`:
+	- When challenge `redirect_type=ssh` and `cap_drop=ALL` is enabled, add a minimal capability set:
+		- `SYS_CHROOT`, `SETUID`, `SETGID`, `CHOWN`, `DAC_OVERRIDE`, `FOWNER`
+- Expected result: SSH challenge containers still run with tightened defaults but retain required capabilities for password setup and SSH session establishment.
+
+### 07:40 — SSH Password Mismatch Fix for Loki Instances
+- Issue reported: users attempted default password (`f068c7da`) and got `Permission denied` on Loki-started SSH instance.
+- Runtime confirmation: container env had dynamically injected `CHALLENGE_PASSWORD` (example: `dPQy1OzI`), which differed from static challenge README default.
+- Fix applied in `backends/docker_backend.py`:
+	- SSH password is now deterministic per container (`uuid`-derived) so it can be reproduced reliably.
+	- `get_connection_info()` now appends `Password: <value>` for SSH challenges.
+- Expected result: Instance Info now shows both SSH command and matching password, preventing login confusion.
+
+### 07:48 — Separate Copy Actions for Connection and Password
+- Request: split copy behavior so connection command and password can be copied independently.
+- UI update applied:
+	- `assets/view.html`: replaced single text block with separate fields:
+		- connection command + `Copy` button
+		- password + `Copy` button
+	- `assets/view.js`: parse `user_access` into command/password, render fields, and copy each separately.
+- Operational note: existing running instances may still use previously generated random passwords until restarted; new instances after plugin reload follow deterministic password display behavior.
+
+### 07:55 — SSH Post-Auth Disconnect Fix (Audit Capability)
+- Runtime evidence from user test:
+	- `Accepted password for bytesec ...`
+	- immediately followed by `linux_audit_write_entry failed: Operation not permitted`
+	- session closed by remote host after password entry.
+- Root-cause: capability profile for SSH challenges still missed `AUDIT_WRITE`, required by PAM/audit path during login/logout on this image.
+- Fix applied in `backends/docker_backend.py`:
+	- Added `AUDIT_WRITE` to SSH-only `cap_add` set when `cap_drop=ALL` is enabled.
+- Expected result: successful SSH password auth now yields an interactive shell instead of immediate disconnect.
+
+### 08:05 — README Installation + Usage Documentation Refresh
+- User requested updated documentation focused on installation and plugin usage.
+- Updated `README.md`:
+	- Expanded installation into two paths:
+		- workspace-local CTFd deployment
+		- external CTFd deployment
+	- Added first-run checklist for required Loki settings.
+	- Added structured usage documentation:
+		- admin workflow (build image, create challenge, validate)
+		- player workflow (start, connect, solve, stop)
+		- container management and common Docker debug commands.
+- Prepared commit including README and accumulated plugin fixes.

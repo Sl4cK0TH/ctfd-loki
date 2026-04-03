@@ -54,7 +54,9 @@ def frequency_limited(func):
 
         cooldown = int(get_loki_config("rate_limit_seconds", "60"))
         now = int(time.time())
-        last = session.get("loki_last_action", 0)
+        action = (request.method or "action").lower()
+        session_key = f"loki_last_action_{action}"
+        last = session.get(session_key, 0)
 
         if now - last < cooldown:
             remaining = cooldown - (now - last)
@@ -64,7 +66,7 @@ def frequency_limited(func):
                 success=False,
             )
 
-        session["loki_last_action"] = now
+        session[session_key] = now
         return func(*args, **kwargs)
 
     return _wrapper
