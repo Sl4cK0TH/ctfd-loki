@@ -5,6 +5,10 @@
  * and handles the flag template toggle.
  */
 
+if (window.$ === undefined && window.CTFd && window.CTFd.lib) {
+  window.$ = window.CTFd.lib.$;
+}
+
 function toggleFlagTemplate() {
   var modeEl = document.getElementById("flag_mode");
   if (!modeEl) {
@@ -25,3 +29,19 @@ function toggleFlagTemplate() {
   flagMode.addEventListener("change", toggleFlagTemplate);
   toggleFlagTemplate();
 })();
+
+if (window.$) {
+  $("#desc-edit").on("shown.bs.tab", function (event) {
+    if (event.target.hash === "#desc-preview" && window.challenge && window.challenge.render) {
+      var editorValue = $("#desc-editor").val();
+      $(event.target.hash).html(window.challenge.render(editorValue));
+    }
+  });
+
+  $("#new-desc-edit").on("shown.bs.tab", function (event) {
+    if (event.target.hash === "#new-desc-preview" && window.challenge && window.challenge.render) {
+      var editorValue = $("#new-desc-editor").val();
+      $(event.target.hash).html(window.challenge.render(editorValue));
+    }
+  });
+}

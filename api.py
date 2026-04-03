@@ -84,6 +84,30 @@ def _resolve_admin_container():
     return q.order_by(LokiContainer.id.desc()).first()
 
 
+def _resolve_public_host():
+    """
+    Resolve host used in player connection info.
+
+    Priority:
+      1) loki:public_host override
+      2) X-Forwarded-Host (reverse proxy)
+      3) request.host
+    """
+    configured = (get_loki_config("public_host", "") or "").strip()
+    if configured:
+        return configured
+
+    forwarded = (request.headers.get("X-Forwarded-Host", "") or "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip().split(":")[0]
+
+    host = (request.host or "").strip()
+    if host:
+        return host.split(":")[0]
+
+    return "127.0.0.1"
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  ADMIN ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════
@@ -209,6 +233,7 @@ class UserContainers(Resource):
 
         backend = get_backend()
         connection_info = backend.get_connection_info(container.challenge, container)
+        connection_info = connection_info.replace("{SERVER_IP}", _resolve_public_host())
 
         return {
             "success": True,

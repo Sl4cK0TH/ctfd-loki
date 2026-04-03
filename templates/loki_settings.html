@@ -18,6 +18,14 @@
         <div class="form-text">e.g. <code>unix:///var/run/docker.sock</code> or <code>tcp://192.168.1.100:2376</code></div>
       </div>
 
+      <div class="mb-3">
+        <label class="form-label">Public Hostname / IP (optional)</label>
+        <input type="text" class="form-control" name="public_host"
+               value="{{ get_config('loki:public_host') or '' }}"
+               placeholder="e.g. ctf.example.com or 192.168.1.50">
+        <div class="form-text">Used to replace <code>{SERVER_IP}</code> in player connection info. Leave empty to auto-detect.</div>
+      </div>
+
       <div class="row">
         <div class="col-md-4 mb-3">
           <label class="form-label">Container Timeout (seconds)</label>

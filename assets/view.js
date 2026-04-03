@@ -4,7 +4,29 @@ CTFd._internal.challenge.preRender = function () {};
 CTFd._internal.challenge.postRender = function () {
   lokiLoadInfo();
 };
-CTFd._internal.challenge.render = CTFd.lib.markdown();
+
+function lokiRenderText(text) {
+  return text;
+}
+
+if (CTFd.lib && typeof CTFd.lib.markdown === "function") {
+  try {
+    var md = CTFd.lib.markdown();
+    if (typeof md === "function") {
+      lokiRenderText = md;
+    } else if (md && typeof md.render === "function") {
+      lokiRenderText = function (text) {
+        return md.render(text);
+      };
+    }
+  } catch (e) {
+    lokiRenderText = function (text) {
+      return text;
+    };
+  }
+}
+
+CTFd._internal.challenge.render = lokiRenderText;
 
 if (window.$ === undefined) {
   window.$ = CTFd.lib.$;

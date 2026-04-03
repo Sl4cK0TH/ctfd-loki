@@ -13,6 +13,7 @@ DEFAULTS = {
     "setup": "true",
     # ── Docker ───────────────────────────────────────────────
     "docker_api_url": "unix:///var/run/docker.sock",
+    "public_host": "",
     "docker_dns": "",
     "docker_auto_connect_network": "",
     "docker_timeout": "3600",

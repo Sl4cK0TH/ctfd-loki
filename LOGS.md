@@ -133,3 +133,48 @@ All timestamps are in UTC+8 (Asia/Manila).
 	- admin container actions documented with `container_id` as preferred lookup
 	- compatibility notes for latest CTFd challenge frontend contract
 - Prepared cleanup of tracked bytecode artifacts from git index.
+
+### 04:45 — Production Admin Page Crash Hotfix
+- Root-cause confirmed from traceback: `assets/create.html` attempted to evaluate `uuid.uuid4()` during Jinja render for `/api/v1/challenges/types`.
+- Fixed `flag_template` default value in `assets/create.html` by wrapping the inner Jinja expression with `{% raw %}...{% endraw %}` so it is treated as literal template text.
+- Expected result: `/admin/challenges/new` loads correctly and no longer throws `jinja2.exceptions.UndefinedError: 'uuid' is undefined`.
+
+### 05:05 — Create Button No-Op Hotfix
+- Root-cause confirmed: `assets/create.html` did not contain a `<form>` element, while CTFd admin new challenge flow binds submit handler to `#create-chal-entry-div form`.
+- Wrapped the create modal content in `<form id="loki-create-form" class="modal-content">...</form>`.
+- Expected result: clicking **Create** now triggers `/api/v1/challenges` POST and creates the Loki challenge normally.
+
+### 05:25 — Start Instance No-Op Hotfix
+- Issue reported: challenge opens, but **Start Instance** does nothing and no backend API logs appear.
+- Likely root-cause confirmed in frontend script: `assets/view.js` called `CTFd.lib.markdown()` unconditionally.
+- On latest CTFd core frontend, `CTFd.lib.markdown` may be unavailable; this throws during script load and prevents `CTFd._internal.challenge.boot` from being registered.
+- Fix applied in `assets/view.js`:
+	- Added safe markdown detection/fallback
+	- Defaulted `CTFd._internal.challenge.render` to identity function when markdown helper is unavailable
+- Expected result: script loads successfully, boot handler registers, and Start Instance sends API requests.
+
+### 05:40 — Docker Daemon Connectivity Fix (Deployment)
+- Issue reported from runtime: `Cannot connect to Docker daemon at unix:///var/run/docker.sock`.
+- Root-cause confirmed in deployment compose: CTFd service did not mount Docker socket.
+- Updated `CTFd/docker-compose.yml` to mount `/var/run/docker.sock:/var/run/docker.sock` into `ctfd` service.
+- Expected result: Loki backend inside CTFd can connect to host Docker daemon and spawn containers.
+
+### 05:55 — Connection Host Placeholder Resolution
+- Issue reported: player connection string showed unresolved placeholder (`http://{SERVER_IP}:<port>`).
+- Added host resolution in `api.py`:
+	- `loki:public_host` config override (new)
+	- fallback to `X-Forwarded-Host`
+	- fallback to `request.host`
+- Applied replacement for `{SERVER_IP}` before returning `user_access` payload.
+- Added `public_host` setting to `config.py` defaults and admin settings UI (`loki_settings.html`).
+- Expected result: player sees concrete host/IP in instance URL and can connect directly.
+
+### 06:15 — Admin Challenge Form Compatibility Fix
+- Issue reported: Loki challenge edit page blank, update controls unavailable, delete workflow broken, and description markdown preview not rendering.
+- Root-cause: Loki create/update templates were custom modal layouts and did not follow CTFd's expected admin challenge form inheritance contract.
+- Refactor applied:
+	- `assets/create.html` now extends `admin/challenges/create.html`
+	- `assets/update.html` now extends `admin/challenges/update.html`
+	- Loki-specific fields are injected via overridden blocks, preserving CTFd's expected form wiring.
+- Added markdown preview handlers in `assets/create.js` and `assets/update.js` using `window.challenge.render(...)` when preview tabs are selected.
+- Expected result: create/update forms render correctly, action buttons work, and description preview renders markdown.
