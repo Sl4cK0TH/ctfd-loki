@@ -1,56 +1,40 @@
-<!-- CTFd LOKI — Player Challenge View -->
+{% extends "challenge.html" %}
 
-<div id="loki-container-panel" class="mb-4">
+{% block description %}
+{{ challenge.html }}
 
-  <!-- ── Action Buttons ──────────────────────────────────── -->
-  <div class="text-center mb-3">
-    <button id="loki-start-btn" class="btn btn-outline-success btn-lg" onclick="lokiStart()">
-      <i class="fas fa-play me-1"></i> Start Instance
-    </button>
-    <button id="loki-stop-btn" class="btn btn-outline-danger btn-lg" style="display:none;" onclick="lokiStop()">
-      <i class="fas fa-stop me-1"></i> Stop Instance
-    </button>
-    <button id="loki-renew-btn" class="btn btn-outline-warning btn-lg" style="display:none;" onclick="lokiRenew()">
-      <i class="fas fa-sync me-1"></i> Renew
-    </button>
-  </div>
-
-  <!-- ── Loading Spinner ─────────────────────────────────── -->
-  <div id="loki-spinner" class="text-center my-3" style="display:none;">
-    <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading…</span>
+<div class="row text-center pb-3">
+  <div id="loki-panel" style="width: 100%;">
+    <div id="loki-panel-stopped" class="card" style="width: 100%;">
+      <div class="card-body">
+        <h5 class="card-title">Instance Info</h5>
+        <button class="btn btn-primary card-link" id="loki-button-boot" type="button"
+                onclick="CTFd._internal.challenge.boot()">
+          Start Instance
+        </button>
+      </div>
     </div>
-    <p class="text-muted mt-2">Working…</p>
-  </div>
 
-  <!-- ── Connection Info ─────────────────────────────────── -->
-  <div id="loki-connection" class="alert alert-info mx-auto" style="display:none; max-width:600px;">
-    <h6 class="alert-heading mb-2"><i class="fas fa-terminal me-1"></i> Connection</h6>
-    <pre id="loki-access" class="mb-1 user-select-all" style="cursor:pointer;"
-         onclick="lokiCopy(this)" title="Click to copy"></pre>
-    <hr class="my-2">
-    <div class="d-flex justify-content-between align-items-center">
-      <small class="text-muted">
-        <i class="fas fa-clock me-1"></i>
-        Time remaining: <strong id="loki-timer">--:--</strong>
-      </small>
-      <small class="text-muted">
-        Renewed: <span id="loki-renew-count">0</span> times
-      </small>
+    <div id="loki-panel-started" class="card" style="display: none; width: 100%;">
+      <div class="card-body">
+        <h5 class="card-title">Instance Info</h5>
+        <h6 class="card-subtitle mb-2 text-muted">
+          Remaining Time: <span id="loki-challenge-count-down"></span>s
+        </h6>
+        <p id="loki-challenge-user-access" class="card-text user-select-all"></p>
+        <p class="card-text text-muted">
+          Renewed: <span id="loki-renew-count">0</span>
+        </p>
+        <button type="button" class="btn btn-danger card-link" id="loki-button-destroy"
+                onclick="CTFd._internal.challenge.destroy()">
+          Stop Instance
+        </button>
+        <button type="button" class="btn btn-success card-link" id="loki-button-renew"
+                onclick="CTFd._internal.challenge.renew()">
+          Renew Instance
+        </button>
+      </div>
     </div>
   </div>
-
-  <!-- ── Error ───────────────────────────────────────────── -->
-  <div id="loki-error" class="alert alert-danger mx-auto text-center" style="display:none; max-width:600px;"></div>
-
 </div>
-
-<!-- ── Flag Submission ───────────────────────────────────── -->
-<form id="challenge-submit-form" class="mt-3">
-  <div class="input-group mx-auto" style="max-width:600px;">
-    <input type="text" class="form-control" id="challenge-input" name="answer" placeholder="flag{...}">
-    <button type="submit" class="btn btn-success">
-      <i class="fas fa-flag me-1"></i> Submit
-    </button>
-  </div>
-</form>
+{% endblock %}

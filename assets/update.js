@@ -5,19 +5,23 @@
  * and handles the flag template toggle.
  */
 
-document.addEventListener("DOMContentLoaded", function () {
-  // Toggle flag template visibility
-  var flagMode = document.getElementById("flag_mode");
-  if (flagMode) {
-    toggleFlagTemplate();
-    flagMode.addEventListener("change", toggleFlagTemplate);
-  }
-});
-
 function toggleFlagTemplate() {
-  var mode = document.getElementById("flag_mode").value;
+  var modeEl = document.getElementById("flag_mode");
+  if (!modeEl) {
+    return;
+  }
+  var mode = modeEl.value;
   var group = document.getElementById("flag-template-group");
   if (group) {
     group.style.display = mode === "dynamic" ? "" : "none";
   }
 }
+
+(function () {
+  var flagMode = document.getElementById("flag_mode");
+  if (!flagMode) {
+    return;
+  }
+  flagMode.addEventListener("change", toggleFlagTemplate);
+  toggleFlagTemplate();
+})();

@@ -91,3 +91,36 @@ All timestamps are in UTC+8 (Asia/Manila).
 	- compile plugin modules (`python -m compileall plugins/ctfd-loki`)
 	- check diagnostics for modified files
 	- re-run quick endpoint sanity review for start/stop/admin paths
+
+### 23:05 — Latest CTFd Compatibility Audit
+- Performed source-level compatibility check against this workspace's CTFd core implementation.
+- Verified plugin registration/API hooks are conceptually compatible:
+	- `CTFd_API_v1` import path (`CTFd.api`) is valid for this codebase
+	- challenge type registration via `CHALLENGE_CLASSES` is valid
+	- plugin asset/menu registration APIs are valid
+- Identified critical frontend contract gaps preventing "works perfectly" status on latest CTFd UI flow:
+	- `assets/view.html` does not extend `challenge.html` and bypasses the expected challenge modal contract.
+	- `assets/view.js` does not use `CTFd._internal.challenge.preRender/postRender/submit` hooks.
+	- `assets/view.js` uses `init.csrfNonce`; current core uses `CTFd.config.csrfNonce` (or `CTFd.fetch` wrapper).
+	- `assets/view.html` defines custom submission form/input (`name=answer`) instead of using expected submission flow (`name=submission` + core submit pipeline).
+- Identified medium-risk admin UX contract gaps:
+	- `assets/create.js` and `assets/update.js` rely on `DOMContentLoaded`; admin challenge scripts are loaded dynamically after page load, so these handlers may not fire.
+- Conclusion: backend/API/model layer is close; frontend challenge/admin scripts need contract-aligned refactor for full compatibility with latest CTFd.
+
+### 23:30 — Frontend Contract Refactor Implemented
+- Updated `assets/view.html` to extend `challenge.html` and inject Loki instance controls in the description block.
+- Removed custom/standalone flag submission form from Loki view template to rely on core challenge submission UI.
+- Rewrote `assets/view.js` to use CTFd challenge lifecycle contract:
+	- `CTFd._internal.challenge.preRender`
+	- `CTFd._internal.challenge.postRender`
+	- `CTFd._internal.challenge.submit`
+	- `CTFd._internal.challenge.boot/destroy/renew`
+- Switched away from legacy `init.csrfNonce` usage and used `CTFd.fetch`/CTFd API wrappers used by core frontend.
+- Updated `assets/create.js` and `assets/update.js` to avoid `DOMContentLoaded` dependency and bind immediately when scripts are loaded dynamically in admin challenge pages.
+
+### 23:36 — Validation
+- Ran `python -m compileall plugins/ctfd-loki` after refactor.
+- Checked diagnostics for modified frontend assets; no tool-reported errors.
+- Verified expected compatibility markers exist in source:
+	- view template extends `challenge.html`
+	- view script defines `postRender` and `submit` lifecycle hooks

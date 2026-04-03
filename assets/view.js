@@ -1,234 +1,186 @@
-/**
- * CTFd LOKI — Player View JS
- *
- * Handles container lifecycle (start / stop / renew) and displays
- * connection info with a live countdown timer.
- */
+CTFd._internal.challenge.data = undefined;
 
-/* ── Globals ─────────────────────────────────────────────── */
+CTFd._internal.challenge.preRender = function () {};
+CTFd._internal.challenge.postRender = function () {
+  lokiLoadInfo();
+};
+CTFd._internal.challenge.render = CTFd.lib.markdown();
 
-var LOKI_CHALLENGE_ID = parseInt(
-  (document.getElementById("challenge-id") || {}).value ||
-    (document.querySelector("[data-challenge-id]") || {}).dataset
-      ?.challengeId ||
-    0
-);
-var _lokiTimer = null;
-var _lokiRemaining = 0;
-
-/* ── UI Helpers ──────────────────────────────────────────── */
-
-function _show(id) {
-  document.getElementById(id).style.display = "";
-}
-function _hide(id) {
-  document.getElementById(id).style.display = "none";
+if (window.$ === undefined) {
+  window.$ = CTFd.lib.$;
 }
 
-function lokiCopy(el) {
-  navigator.clipboard.writeText(el.innerText).then(function () {
-    var orig = el.title;
-    el.title = "Copied!";
-    setTimeout(function () {
-      el.title = orig;
-    }, 1500);
-  });
+var lokiTimer = null;
+
+function lokiChallengeId() {
+  return CTFd._internal.challenge.data.id;
 }
 
-function _showRunning(data) {
-  document.getElementById("loki-access").innerText = data.user_access || "";
-  document.getElementById("loki-renew-count").innerText =
-    data.renew_count || 0;
-
-  _lokiRemaining = data.remaining_time || 0;
-  _startCountdown();
-
-  _show("loki-connection");
-  _show("loki-stop-btn");
-  _show("loki-renew-btn");
-  _hide("loki-start-btn");
-  _hide("loki-spinner");
-  _hide("loki-error");
+function lokiContainerUrl() {
+  return "/api/v1/plugins/ctfd-loki/container?challenge_id=" + lokiChallengeId();
 }
 
-function _showStopped() {
-  _stopCountdown();
-  _hide("loki-connection");
-  _hide("loki-stop-btn");
-  _hide("loki-renew-btn");
-  _show("loki-start-btn");
-  _hide("loki-spinner");
-}
-
-function _showError(msg) {
-  var el = document.getElementById("loki-error");
-  el.innerText = msg;
-  _show("loki-error");
-  _hide("loki-spinner");
-  _show("loki-start-btn");
-}
-
-function _showLoading() {
-  _hide("loki-start-btn");
-  _hide("loki-stop-btn");
-  _hide("loki-renew-btn");
-  _hide("loki-error");
-  _show("loki-spinner");
-}
-
-/* ── Countdown Timer ─────────────────────────────────────── */
-
-function _formatTime(secs) {
-  if (secs <= 0) return "00:00";
-  var m = Math.floor(secs / 60);
-  var s = secs % 60;
-  return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
-}
-
-function _startCountdown() {
-  _stopCountdown();
-  _updateTimerDisplay();
-  _lokiTimer = setInterval(function () {
-    _lokiRemaining--;
-    _updateTimerDisplay();
-    if (_lokiRemaining <= 0) {
-      _stopCountdown();
-      _showStopped();
-    }
-  }, 1000);
-}
-
-function _updateTimerDisplay() {
-  var el = document.getElementById("loki-timer");
-  if (el) el.innerText = _formatTime(_lokiRemaining);
-}
-
-function _stopCountdown() {
-  if (_lokiTimer) {
-    clearInterval(_lokiTimer);
-    _lokiTimer = null;
+function lokiClearTimer() {
+  if (lokiTimer !== null) {
+    clearInterval(lokiTimer);
+    lokiTimer = null;
   }
 }
 
-/* ── API Calls ───────────────────────────────────────────── */
+function lokiSetStartedState(responseData) {
+  var renewCount = responseData.renew_count || 0;
+  var remaining = parseInt(responseData.remaining_time || 0);
 
-function _apiCall(method, callback) {
-  var xhr = new XMLHttpRequest();
-  var url =
-    "/api/v1/plugins/ctfd-loki/container?challenge_id=" + LOKI_CHALLENGE_ID;
-  xhr.open(method, url, true);
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.setRequestHeader("CSRF-Token", init.csrfNonce);
+  $("#loki-challenge-user-access").text(responseData.user_access || "");
+  $("#loki-renew-count").text(renewCount);
+  $("#loki-challenge-count-down").text(remaining);
 
-  xhr.onload = function () {
-    var resp;
-    try {
-      resp = JSON.parse(xhr.responseText);
-    } catch (e) {
-      callback({ success: false, message: "Invalid server response" });
+  $("#loki-panel-stopped").hide();
+  $("#loki-panel-started").show();
+
+  lokiClearTimer();
+  lokiTimer = setInterval(function () {
+    var current = parseInt($("#loki-challenge-count-down").text() || "0");
+    var next = current - 1;
+    if (next <= 0) {
+      lokiLoadInfo();
       return;
     }
-    callback(resp, xhr.status);
-  };
-
-  xhr.onerror = function () {
-    callback({ success: false, message: "Network error" });
-  };
-
-  xhr.send();
+    $("#loki-challenge-count-down").text(next);
+  }, 1000);
 }
 
-function lokiStart() {
-  _showLoading();
-  var xhr = new XMLHttpRequest();
-  var url =
-    "/api/v1/plugins/ctfd-loki/container?challenge_id=" + LOKI_CHALLENGE_ID;
-  xhr.open("POST", url, true);
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.setRequestHeader("CSRF-Token", init.csrfNonce);
-
-  xhr.onload = function () {
-    var resp;
-    try {
-      resp = JSON.parse(xhr.responseText);
-    } catch (e) {
-      _showError("Invalid server response");
-      return;
-    }
-    if (xhr.status === 200 && resp.success) {
-      // Re-fetch to get connection info
-      lokiCheckStatus();
-    } else {
-      _showError(resp.message || "Failed to start instance");
-    }
-  };
-  xhr.onerror = function () {
-    _showError("Network error");
-  };
-  xhr.send();
+function lokiSetStoppedState() {
+  lokiClearTimer();
+  $("#loki-panel-started").hide();
+  $("#loki-panel-stopped").show();
 }
 
-function lokiStop() {
-  _showLoading();
-  var xhr = new XMLHttpRequest();
-  var url =
-    "/api/v1/plugins/ctfd-loki/container?challenge_id=" + LOKI_CHALLENGE_ID;
-  xhr.open("DELETE", url, true);
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.setRequestHeader("CSRF-Token", init.csrfNonce);
-
-  xhr.onload = function () {
-    _showStopped();
-  };
-  xhr.onerror = function () {
-    _showError("Network error");
-  };
-  xhr.send();
-}
-
-function lokiRenew() {
-  _showLoading();
-  var xhr = new XMLHttpRequest();
-  var url =
-    "/api/v1/plugins/ctfd-loki/container?challenge_id=" + LOKI_CHALLENGE_ID;
-  xhr.open("PATCH", url, true);
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.setRequestHeader("CSRF-Token", init.csrfNonce);
-
-  xhr.onload = function () {
-    var resp;
-    try {
-      resp = JSON.parse(xhr.responseText);
-    } catch (e) {
-      _showError("Invalid server response");
-      return;
-    }
-    if (resp.success) {
-      lokiCheckStatus();
-    } else {
-      _showError(resp.message || "Failed to renew");
-      _show("loki-stop-btn");
-      _show("loki-renew-btn");
-    }
-  };
-  xhr.onerror = function () {
-    _showError("Network error");
-  };
-  xhr.send();
-}
-
-function lokiCheckStatus() {
-  _apiCall("GET", function (resp, status) {
-    if (resp.success && resp.data && resp.data.user_access) {
-      _showRunning(resp.data);
-    } else {
-      _showStopped();
-    }
+function lokiAlert(title, message) {
+  CTFd._functions.events.eventAlert({
+    title: title,
+    html: message,
+    button: "OK",
   });
 }
 
-/* ── On Page Load ────────────────────────────────────────── */
+function lokiRequest(method) {
+  return CTFd.fetch(lokiContainerUrl(), {
+    method: method,
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  }).then(function (response) {
+    return response.json();
+  });
+}
 
-(function () {
-  lokiCheckStatus();
-})();
+function lokiLoadInfo() {
+  CTFd.fetch(lokiContainerUrl(), {
+    method: "GET",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+  })
+    .then(function (response) {
+      return response.json();
+    })
+    .then(function (response) {
+      var data = response.success ? response.data : null;
+      if (data && data.user_access) {
+        lokiSetStartedState(data);
+      } else {
+        lokiSetStoppedState();
+      }
+    })
+    .catch(function () {
+      lokiSetStoppedState();
+    });
+}
+
+CTFd._internal.challenge.boot = function () {
+  var button = $("#loki-button-boot");
+  button.text("Starting...");
+  button.prop("disabled", true);
+
+  lokiRequest("POST")
+    .then(function (response) {
+      if (response.success) {
+        lokiLoadInfo();
+      } else {
+        lokiAlert("Spawn Failed", response.message || "Failed to start instance");
+      }
+    })
+    .catch(function () {
+      lokiAlert("Spawn Failed", "Failed to start instance");
+    })
+    .finally(function () {
+      button.text("Start Instance");
+      button.prop("disabled", false);
+    });
+};
+
+CTFd._internal.challenge.destroy = function () {
+  var button = $("#loki-button-destroy");
+  button.text("Stopping...");
+  button.prop("disabled", true);
+
+  lokiRequest("DELETE")
+    .then(function (response) {
+      if (response.success) {
+        lokiLoadInfo();
+      } else {
+        lokiAlert("Stop Failed", response.message || "Failed to stop instance");
+      }
+    })
+    .catch(function () {
+      lokiAlert("Stop Failed", "Failed to stop instance");
+    })
+    .finally(function () {
+      button.text("Stop Instance");
+      button.prop("disabled", false);
+    });
+};
+
+CTFd._internal.challenge.renew = function () {
+  var button = $("#loki-button-renew");
+  button.text("Renewing...");
+  button.prop("disabled", true);
+
+  lokiRequest("PATCH")
+    .then(function (response) {
+      if (response.success) {
+        lokiLoadInfo();
+      } else {
+        lokiAlert("Renew Failed", response.message || "Failed to renew instance");
+      }
+    })
+    .catch(function () {
+      lokiAlert("Renew Failed", "Failed to renew instance");
+    })
+    .finally(function () {
+      button.text("Renew Instance");
+      button.prop("disabled", false);
+    });
+};
+
+CTFd._internal.challenge.submit = function (preview) {
+  var challengeId = lokiChallengeId();
+  var submission = $("#challenge-input").val();
+  var body = {
+    challenge_id: challengeId,
+    submission: submission,
+  };
+  var params = {};
+  if (preview) {
+    params.preview = true;
+  }
+  return CTFd.api.post_challenge_attempt(params, body).then(function (response) {
+    return response;
+  });
+};
