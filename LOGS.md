@@ -124,3 +124,12 @@ All timestamps are in UTC+8 (Asia/Manila).
 - Verified expected compatibility markers exist in source:
 	- view template extends `challenge.html`
 	- view script defines `postRender` and `submit` lifecycle hooks
+
+### 23:50 — Repo Hygiene + Documentation Stabilization
+- Added plugin-level `.gitignore` to ignore Python bytecode and common local artifacts.
+- Updated `README.md` to reflect current behavior and interfaces:
+	- explicit block-on-existing instance behavior for start endpoint
+	- runtime hardening settings now exposed in configuration table
+	- admin container actions documented with `container_id` as preferred lookup
+	- compatibility notes for latest CTFd challenge frontend contract
+- Prepared cleanup of tracked bytecode artifacts from git index.

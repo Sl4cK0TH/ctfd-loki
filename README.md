@@ -16,6 +16,7 @@ Inspired by [CTFd-whale](https://github.com/frankli0324/ctfd-whale), rebuilt fro
 |---|---|
 | **Per-player containers** | Each player gets a dedicated Docker container when they click "Start Instance" |
 | **Per-team mode** | Configurable — share one instance across team members |
+| **Explicit lifecycle control** | Start is blocked when an instance exists; users must stop first |
 | **Static + dynamic flags** | Admin-defined flags or auto-generated unique flags per instance |
 | **Countdown timer** | Players see remaining time; containers are auto-cleaned when expired |
 | **Renew / Stop** | Players manage their own instance lifecycle |
@@ -136,6 +137,11 @@ All settings are managed through the **Admin → Loki → Settings** page.
 | Max Renewals | `5` | Per-instance renewal cap |
 | Custom DNS | _(empty)_ | Comma-separated DNS servers for containers |
 | Auto-connect Network | _(empty)_ | Docker network to attach containers to |
+| Read-only RootFS | `0` | Run challenge containers with read-only root filesystem |
+| Drop All Capabilities | `1` | Drop all Linux capabilities (`cap_drop=ALL`) |
+| No New Privileges | `1` | Prevent privilege escalation (`no-new-privileges`) |
+| PIDs Limit | `256` | Max process count per challenge container |
+| /tmp tmpfs Size | `64m` | Size of writable hardened `/tmp` tmpfs mount |
 | Container Scope | `user` | `user` or `team` |
 | Default Flag Mode | `static` | `static` or `dynamic` |
 | Flag Template | `flag{<uuid>}` | Jinja2 template for dynamic flags |
@@ -193,7 +199,7 @@ All endpoints are under `/api/v1/plugins/ctfd-loki/`.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/container?challenge_id=N` | Get current instance status |
-| `POST` | `/container?challenge_id=N` | Start a new instance |
+| `POST` | `/container?challenge_id=N` | Start a new instance (blocked if another is running) |
 | `PATCH` | `/container?challenge_id=N` | Renew (extend timeout) |
 | `DELETE` | `/container?challenge_id=N` | Stop and destroy |
 
@@ -202,8 +208,12 @@ All endpoints are under `/api/v1/plugins/ctfd-loki/`.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/admin/container?page=N` | List all containers (paginated) |
-| `PATCH` | `/admin/container?user_id=N` | Renew a user's container |
-| `DELETE` | `/admin/container?user_id=N` | Destroy a user's container |
+| `PATCH` | `/admin/container?container_id=N` | Renew a container (preferred lookup) |
+| `DELETE` | `/admin/container?container_id=N` | Destroy a container (preferred lookup) |
+
+Admin compatibility fallback:
+- `user_id` is still accepted for renew/destroy operations.
+- `challenge_id`/`team_id` can be supplied with `user_id` to disambiguate.
 
 ---
 
@@ -280,10 +290,22 @@ exec /usr/sbin/sshd -D
 ## Security Considerations
 
 - **Docker socket** — grants root-equivalent access; restrict permissions
-- **Resource limits** — always set memory and CPU caps per challenge
+- **Runtime hardening** — enable `cap_drop=ALL` and `no-new-privileges` (defaults in Loki)
+- **Resource limits** — always set memory, CPU, and process limits per challenge
+- **Filesystem controls** — use read-only rootfs when compatible and writable tmpfs only where needed
 - **Network isolation** — use `docker_auto_connect_network` for internal networks
 - **Rate limiting** — prevents container spam (configurable cooldown)
 - **Cleanup** — auto-cleanup runs every 30 seconds; implement additional monitoring for production
+
+---
+
+## Compatibility Notes
+
+- Loki is aligned with latest CTFd challenge plugin frontend contracts:
+   - challenge view template extends `challenge.html`
+   - challenge script implements `CTFd._internal.challenge` lifecycle hooks
+   - submission path uses CTFd challenge attempt API flow
+- Admin create/update scripts are compatible with dynamic script loading in CTFd admin challenge pages.
 
 ---
 
