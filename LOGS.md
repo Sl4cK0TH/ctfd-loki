@@ -281,3 +281,12 @@ All timestamps are in UTC+8 (Asia/Manila).
 		- player workflow (start, connect, solve, stop)
 		- container management and common Docker debug commands.
 - Prepared commit including README and accumulated plugin fixes.
+
+### 08:20 — v1.0 Completion Pass
+- User requested to complete plugin now.
+- Finalized plugin scope as Docker standalone v1.0 and documented it in `README.md`.
+- Added explicit sections:
+	- v1.0 status and included capabilities
+	- out-of-scope items for later phases
+	- release validation checklist (pass states for verified workflows)
+- Prepared final readiness commit for this milestone.

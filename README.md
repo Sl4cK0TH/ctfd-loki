@@ -29,6 +29,41 @@ Inspired by [CTFd-whale](https://github.com/frankli0324/ctfd-whale), rebuilt fro
 | **Pluggable backends** | Docker (default) — Swarm planned for Phase 2 |
 | **No Redis required** | Phase 1 uses session-based rate limiting |
 
+## v1.0 Status (Docker Standalone)
+
+This plugin is considered **v1.0-ready** for Docker standalone deployments.
+
+### Included in v1.0
+
+- Challenge type create/update/delete compatibility with latest CTFd
+- Per-user/per-team instance lifecycle (start, stop, renew, timeout cleanup)
+- Admin settings and container management pages
+- Dynamic/static flag support
+- Runtime hardening controls with SSH-compatible capability profile
+- Improved SSH UX (command + password display with separate copy buttons)
+
+### Out of Scope for v1.0
+
+- Docker Swarm backend
+- Traefik/frp router integration
+- Redis-based rate limiting
+- Multi-service challenge orchestration
+
+### Release Validation Checklist
+
+| Check | Status |
+|---|---|
+| Plugin loads in Admin sidebar | Pass |
+| Create Loki challenge works | Pass |
+| Update Loki challenge works | Pass |
+| Delete Loki challenge works | Pass |
+| Start/Stop/Renew lifecycle works | Pass |
+| Start blocked when existing instance exists | Pass |
+| Team scope dynamic flag resolution | Pass |
+| SSH challenge login with shown password | Pass |
+| HTTP challenge URL rendering with public host | Pass |
+| Admin container list/renew/destroy by container id | Pass |
+
 ---
 
 ## Architecture
