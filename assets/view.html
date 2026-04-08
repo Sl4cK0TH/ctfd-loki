@@ -7,17 +7,18 @@
   <div id="loki-panel" style="width: 100%;">
     <div id="loki-panel-stopped" class="card" style="width: 100%;">
       <div class="card-body">
-        <h5 class="card-title">Instance Info</h5>
         <button class="btn btn-primary card-link" id="loki-button-boot" type="button"
                 onclick="CTFd._internal.challenge.boot()">
-          Start Instance
+          Spawn Target
         </button>
+        <div id="loki-button-boot-loading" style="display:none;">
+          <span class="spinner-border text-primary" role="status" aria-hidden="true"></span>
+        </div>
       </div>
     </div>
 
     <div id="loki-panel-started" class="card" style="display: none; width: 100%;">
       <div class="card-body">
-        <h5 class="card-title">Instance Info</h5>
         <h6 class="card-subtitle mb-2 text-muted">
           Remaining Time: <span id="loki-challenge-count-down"></span>
         </h6>
@@ -38,14 +39,15 @@
         <p class="card-text text-muted">
           Renewed: <span id="loki-renew-count">0</span>
         </p>
-        <button type="button" class="btn btn-danger card-link" id="loki-button-destroy"
+        <button type="button" class="btn btn-danger card-link" id="loki-button-destroy" title="Stop" aria-label="Stop"
                 onclick="CTFd._internal.challenge.destroy()">
-          Stop Instance
+          <i class="fas fa-stop" aria-hidden="true"></i>
         </button>
-        <button type="button" class="btn btn-success card-link" id="loki-button-renew"
+        <button type="button" class="btn btn-success card-link" id="loki-button-renew" title="Renew" aria-label="Renew"
                 onclick="CTFd._internal.challenge.renew()">
-          Renew Instance
+          <i class="fas fa-rotate-right" aria-hidden="true"></i>
         </button>
+        <span id="loki-started-action-loading" class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true" style="display:none;"></span>
       </div>
     </div>
   </div>

@@ -72,6 +72,30 @@ function lokiSetActionButtonsDisabled(disabled) {
   $("#loki-button-renew").prop("disabled", disabled);
 }
 
+function lokiSetButtonLoading(buttonId, spinnerId, isLoading) {
+  var button = $(buttonId);
+  var spinner = $(spinnerId);
+  if (isLoading) {
+    button.hide();
+    spinner.show();
+  } else {
+    spinner.hide();
+    button.show();
+  }
+}
+
+function lokiSetStartedActionLoading(isLoading) {
+  if (isLoading) {
+    $("#loki-button-destroy").hide();
+    $("#loki-button-renew").hide();
+    $("#loki-started-action-loading").show();
+  } else {
+    $("#loki-started-action-loading").hide();
+    $("#loki-button-destroy").show();
+    $("#loki-button-renew").show();
+  }
+}
+
 function lokiScheduleReload(seconds) {
   var delay = parseInt(seconds || 0);
   if (Number.isNaN(delay) || delay < 0) {
@@ -121,6 +145,9 @@ function lokiSetStoppedState() {
   lokiClearTimer();
   $("#loki-panel-started").hide();
   $("#loki-panel-stopped").show();
+  $("#loki-button-boot").text("Spawn Target");
+  lokiSetButtonLoading("#loki-button-boot", "#loki-button-boot-loading", false);
+  lokiSetStartedActionLoading(false);
   lokiSetActionButtonsDisabled(false);
 }
 
@@ -181,7 +208,7 @@ function lokiCopyAccessInfo() {
     return;
   }
 
-  lokiCopyText(text, "Connection copied to clipboard.");
+  lokiCopyText(text, "#loki-copy-connection");
 }
 
 function lokiCopyPasswordInfo() {
@@ -190,21 +217,34 @@ function lokiCopyPasswordInfo() {
     return;
   }
 
-  lokiCopyText(text, "Password copied to clipboard.");
+  lokiCopyText(text, "#loki-copy-password");
 }
 
-function lokiCopyText(text, successMessage) {
+function lokiShowCopySuccess(buttonSelector) {
+  var button = $(buttonSelector);
+  if (!button.length) {
+    return;
+  }
+
+  button.data("original-html", button.html());
+  button.prop("disabled", true);
+  button.html('<i class="fas fa-check text-success" aria-hidden="true"></i>');
+
+  setTimeout(function () {
+    var original = button.data("original-html") || "Copy";
+    button.html(original);
+    button.prop("disabled", false);
+  }, 900);
+}
+
+function lokiCopyText(text, buttonSelector) {
   if (!text.trim()) {
     return;
   }
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(function () {
-      CTFd._functions.events.eventAlert({
-        title: "Copied",
-        html: successMessage,
-        button: "OK",
-      });
+      lokiShowCopySuccess(buttonSelector);
     });
     return;
   }
@@ -215,6 +255,7 @@ function lokiCopyText(text, successMessage) {
   ta.select();
   document.execCommand("copy");
   document.body.removeChild(ta);
+  lokiShowCopySuccess(buttonSelector);
 }
 
 function lokiParseAccessInfo(raw) {
@@ -257,8 +298,9 @@ $(document).on("click", "#loki-copy-password", function () {
 
 CTFd._internal.challenge.boot = function () {
   var button = $("#loki-button-boot");
-  button.text("Starting...");
+  button.text("Spawn Target");
   lokiSetActionButtonsDisabled(true);
+  lokiSetButtonLoading("#loki-button-boot", "#loki-button-boot-loading", true);
 
   lokiRequest("POST")
     .then(function (response) {
@@ -267,28 +309,47 @@ CTFd._internal.challenge.boot = function () {
           response.data && response.data.start_delay_seconds
             ? response.data.start_delay_seconds
             : 0;
-        button.text(delay > 0 ? "Starting..." : "Start Instance");
+        button.text("Spawn Target");
         lokiScheduleReload(delay);
       } else {
         lokiAlert("Spawn Failed", response.message || "Failed to start instance");
         lokiSetActionButtonsDisabled(false);
+        lokiSetButtonLoading(
+          "#loki-button-boot",
+          "#loki-button-boot-loading",
+          false,
+        );
       }
     })
     .catch(function () {
       lokiAlert("Spawn Failed", "Failed to start instance");
       lokiSetActionButtonsDisabled(false);
+      lokiSetButtonLoading(
+        "#loki-button-boot",
+        "#loki-button-boot-loading",
+        false,
+      );
     })
     .finally(function () {
       if (lokiPendingTimer === null) {
-        button.text("Start Instance");
+        button.text("Spawn Target");
+        lokiSetButtonLoading(
+          "#loki-button-boot",
+          "#loki-button-boot-loading",
+          false,
+        );
       }
     });
 };
 
 CTFd._internal.challenge.destroy = function () {
-  var button = $("#loki-button-destroy");
-  button.text("Stopping...");
+  var proceed = window.confirm("Stop this instance now?");
+  if (!proceed) {
+    return;
+  }
+
   lokiSetActionButtonsDisabled(true);
+  lokiSetStartedActionLoading(true);
 
   lokiRequest("DELETE")
     .then(function (response) {
@@ -297,28 +358,33 @@ CTFd._internal.challenge.destroy = function () {
           response.data && response.data.stop_delay_seconds
             ? response.data.stop_delay_seconds
             : 0;
-        button.text(delay > 0 ? "Stopping..." : "Stop Instance");
         lokiScheduleReload(delay);
       } else {
         lokiAlert("Stop Failed", response.message || "Failed to stop instance");
         lokiSetActionButtonsDisabled(false);
+        lokiSetStartedActionLoading(false);
       }
     })
     .catch(function () {
       lokiAlert("Stop Failed", "Failed to stop instance");
       lokiSetActionButtonsDisabled(false);
+      lokiSetStartedActionLoading(false);
     })
     .finally(function () {
       if (lokiPendingTimer === null) {
-        button.text("Stop Instance");
+        lokiSetStartedActionLoading(false);
       }
     });
 };
 
 CTFd._internal.challenge.renew = function () {
-  var button = $("#loki-button-renew");
-  button.text("Renewing...");
+  var proceed = window.confirm("Renew this instance timer?");
+  if (!proceed) {
+    return;
+  }
+
   lokiSetActionButtonsDisabled(true);
+  lokiSetStartedActionLoading(true);
 
   lokiRequest("PATCH")
     .then(function (response) {
@@ -327,16 +393,18 @@ CTFd._internal.challenge.renew = function () {
       } else {
         lokiAlert("Renew Failed", response.message || "Failed to renew instance");
         lokiSetActionButtonsDisabled(false);
+        lokiSetStartedActionLoading(false);
       }
     })
     .catch(function () {
       lokiAlert("Renew Failed", "Failed to renew instance");
       lokiSetActionButtonsDisabled(false);
+      lokiSetStartedActionLoading(false);
     })
     .finally(function () {
-      button.text("Renew Instance");
       if (lokiPendingTimer === null) {
         lokiSetActionButtonsDisabled(false);
+        lokiSetStartedActionLoading(false);
       }
     });
 };
@@ -352,7 +420,5 @@ CTFd._internal.challenge.submit = function (preview) {
   if (preview) {
     params.preview = true;
   }
-  return CTFd.api.post_challenge_attempt(params, body).then(function (response) {
-    return response;
-  });
+  return CTFd.api.post_challenge_attempt(params, body);
 };

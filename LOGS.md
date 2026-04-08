@@ -290,3 +290,65 @@ All timestamps are in UTC+8 (Asia/Manila).
 	- out-of-scope items for later phases
 	- release validation checklist (pass states for verified workflows)
 - Prepared final readiness commit for this milestone.
+
+### 08:35 — Player Controls UI Refresh (Spawn/Stop/Renew)
+- User request implemented for challenge view controls:
+	- Removed "Instance Info" heading text from stopped and started cards.
+	- Renamed start button label from "Start Instance" to "Spawn Target".
+	- Replaced Stop/Renew text buttons with icon-only controls (Font Awesome stop/rotate-right) with tooltips.
+	- Added global rotating loader indicator during start/stop/renew actions.
+- Updated files:
+	- `assets/view.html`
+	- `assets/view.js`
+
+### 08:48 — In-Place Button Spinner + Action Confirmations
+- User refinement implemented:
+	- Loading spinner now appears in the exact button position (button hidden while loading) for:
+		- Spawn Target
+		- Stop
+		- Renew
+	- Added confirmation prompts before stop and renew API calls.
+- Updated files:
+	- `assets/view.html`
+	- `assets/view.js`
+
+### 09:05 — Shared Stop/Renew Spinner + Auto-Stop on Correct Submission
+- UI refinement:
+	- During stop or renew, both action icons are now hidden and replaced by one shared spinner.
+- Gameplay automation:
+	- On `submit` response status `correct`, plugin now auto-stops the running container.
+- Updated files:
+	- `assets/view.html`
+	- `assets/view.js`
+
+### 09:12 — Spawn Target Animation Polish
+- User requested additional check/refinement for Spawn Target animation.
+- Updated stopped-state loading placeholder so button is replaced by a clearer centered spinner indicator.
+- Updated file:
+	- `assets/view.html`
+
+### 09:20 — Auto-Stop Trigger Robustness Fix
+- Issue observed: container did not always stop after successful submission.
+- Root-cause: submit hook relied on a single response shape (`response.data.status == correct`).
+- Fix applied in `assets/view.js`:
+	- Added status extraction helper supporting multiple payload shapes.
+	- Trigger auto-stop for non-preview statuses: `correct` and `already_solved`.
+- Expected result: instance stops reliably after successful/accepted solve submission.
+
+### 09:28 — Reliable Auto-Stop Hook + Copy Toast UX
+- Follow-up issue: auto-stop still not consistently triggered after correct submit in some frontend paths.
+- Fixes applied in `assets/view.js`:
+	- Added one-time hook wrapper around `CTFd.api.post_challenge_attempt` to catch solve responses regardless of submission call path.
+	- Auto-stop now triggers for current Loki challenge on non-preview statuses `correct` and `already_solved`.
+	- Copy feedback changed from modal alert to short toast via `eventToast` (with alert fallback).
+- Expected result:
+	- container stops reliably after successful submission,
+	- copy action UX is lightweight and non-blocking.
+
+### 09:40 — Copy Button Check Feedback + Auto-Stop Disabled
+- User preference update:
+	- Removed auto-stop behavior for now.
+	- Removed copy toast feedback.
+	- Copy buttons now briefly switch to green check icon after successful copy, then revert to `Copy`.
+- Updated file:
+	- `assets/view.js`
