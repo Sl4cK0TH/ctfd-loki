@@ -71,6 +71,7 @@ class LokiChallengeType(BaseChallenge):
             redirect_port=int(data.get("redirect_port", 22)),
             redirect_type=data.get("redirect_type", "ssh"),
             ssh_user=data.get("ssh_user", "ctf"),
+            tcp_display_template=data.get("tcp_display_template", ""),
             memory_limit=data.get("memory_limit", "256m"),
             cpu_limit=float(data.get("cpu_limit", 0.5)),
             # Flag settings
@@ -111,6 +112,7 @@ class LokiChallengeType(BaseChallenge):
             "redirect_port": challenge.redirect_port,
             "redirect_type": challenge.redirect_type,
             "ssh_user": challenge.ssh_user,
+            "tcp_display_template": challenge.tcp_display_template,
             "memory_limit": challenge.memory_limit,
             "cpu_limit": challenge.cpu_limit,
             "flag_mode": challenge.flag_mode,
@@ -134,6 +136,8 @@ class LokiChallengeType(BaseChallenge):
             elif attr == "cpu_limit":
                 value = float(value)
             elif attr == "docker_image":
+                value = str(value or "").strip()
+            elif attr == "tcp_display_template":
                 value = str(value or "").strip()
             setattr(challenge, attr, value)
 

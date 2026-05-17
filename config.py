@@ -30,6 +30,8 @@ DEFAULTS = {
     # ── Flags ────────────────────────────────────────────────
     "flag_mode_default": "static",
     "flag_template": 'flag{{{ uuid.uuid4()|string }}}',
+    # ── TCP Display ───────────────────────────────────────────
+    "tcp_display_template": "nc",  # "nc" or "htb"
     # ── Backend & Router ─────────────────────────────────────
     "backend": "docker",  # Phase 2: "swarm"
     "router": "direct",   # Phase 2: "traefik", "frp"

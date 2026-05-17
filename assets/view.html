@@ -1,53 +1,158 @@
 {% extends "challenge.html" %}
 
 {% block description %}
+<style>
+  #loki-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  #loki-left-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  #loki-right-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  #loki-connection-inline {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 240px;
+  }
+
+  #loki-connection-text {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #e9ecef;
+    cursor: pointer;
+    padding: 0.1rem 0.25rem;
+    border-radius: 6px;
+    transition: color 0.2s ease, text-shadow 0.2s ease, background-color 0.2s ease;
+  }
+
+  #loki-connection-text:hover {
+    color: #20c96b;
+    text-shadow: 0 0 10px rgba(32, 201, 107, 0.35);
+    background-color: rgba(32, 201, 107, 0.08);
+  }
+
+  #loki-connection-inline.loki-copied #loki-connection-text {
+    color: #20c96b;
+  }
+
+  #loki-connection-inline input {
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  }
+
+  #loki-connection-inline .loki-copy-hint {
+    font-size: 0.75rem;
+    color: #6c757d;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  #loki-connection-inline:hover .loki-copy-hint {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #loki-connection-inline.loki-copied .loki-copy-hint {
+    color: #20c96b;
+    opacity: 1;
+  }
+
+  #loki-status-active {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 2px solid #20c96b;
+    box-shadow: 0 0 6px rgba(32, 201, 107, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #loki-status-active span {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #20c96b;
+    display: block;
+  }
+
+  #loki-button-boot-loading {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  #loki-button-boot-loading .spinner-border {
+    margin-top: 2px;
+  }
+
+  #loki-starting-text {
+    font-size: 0.9rem;
+    color: #6c757d;
+  }
+</style>
+
+<div id="loki-controls">
+  <div id="loki-left-controls">
+    <div id="loki-status-active" title="Instance active" aria-label="Instance active">
+      <span></span>
+    </div>
+    <div id="loki-connection-inline">
+      <span id="loki-connection-text" title="Copy"></span>
+      <input id="loki-connection-command" type="hidden" readonly>
+      <span class="loki-copy-hint">Copy</span>
+    </div>
+    <div id="loki-panel-stopped">
+      <button class="btn btn-primary" id="loki-button-boot" type="button"
+              onclick="CTFd._internal.challenge.boot()">
+        Start Challenge
+      </button>
+    </div>
+    <div id="loki-button-boot-loading">
+      <span id="loki-spinner" class="spinner-border text-primary" role="status" aria-hidden="true"></span>
+      <span id="loki-starting-text">Challenge is spawning. Please stand by...</span>
+    </div>
+  </div>
+  <div id="loki-right-controls">
+    <div id="loki-panel-started" style="display: none;">
+      <button type="button" class="btn btn-danger" id="loki-button-destroy" title="Stop" aria-label="Stop"
+              onclick="CTFd._internal.challenge.destroy()">
+        <i class="fas fa-stop" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="btn btn-success" id="loki-button-renew" title="Renew" aria-label="Renew"
+              onclick="CTFd._internal.challenge.renew()">
+        <i class="fas fa-rotate-right" aria-hidden="true"></i>
+      </button>
+      <span id="loki-started-action-loading" class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true" style="display:none;"></span>
+    </div>
+  </div>
+</div>
+
 {{ challenge.html }}
 
-<div class="row text-center pb-3">
+<div class="row pb-3">
   <div id="loki-panel" style="width: 100%;">
-    <div id="loki-panel-stopped" class="card" style="width: 100%;">
-      <div class="card-body">
-        <button class="btn btn-primary card-link" id="loki-button-boot" type="button"
-                onclick="CTFd._internal.challenge.boot()">
-          Spawn Target
-        </button>
-        <div id="loki-button-boot-loading" style="display:none;">
-          <span class="spinner-border text-primary" role="status" aria-hidden="true"></span>
-        </div>
-      </div>
-    </div>
-
-    <div id="loki-panel-started" class="card" style="display: none; width: 100%;">
-      <div class="card-body">
-        <h6 class="card-subtitle mb-2 text-muted">
-          Remaining Time: <span id="loki-challenge-count-down"></span>
-        </h6>
-        <div id="loki-connection-group" class="mb-2">
-          <p class="card-text mb-1"><strong>Connection</strong></p>
-          <div class="input-group">
-            <input id="loki-connection-command" type="text" class="form-control user-select-all" readonly>
-            <button class="btn btn-outline-secondary" type="button" id="loki-copy-connection">Copy</button>
-          </div>
-        </div>
-        <div id="loki-password-group" class="mb-2" style="display:none;">
-          <p class="card-text mb-1"><strong>Password</strong></p>
-          <div class="input-group">
-            <input id="loki-connection-password" type="text" class="form-control user-select-all" readonly>
-            <button class="btn btn-outline-secondary" type="button" id="loki-copy-password">Copy</button>
-          </div>
-        </div>
-        <p class="card-text text-muted">
-          Renewed: <span id="loki-renew-count">0</span>
-        </p>
-        <button type="button" class="btn btn-danger card-link" id="loki-button-destroy" title="Stop" aria-label="Stop"
-                onclick="CTFd._internal.challenge.destroy()">
-          <i class="fas fa-stop" aria-hidden="true"></i>
-        </button>
-        <button type="button" class="btn btn-success card-link" id="loki-button-renew" title="Renew" aria-label="Renew"
-                onclick="CTFd._internal.challenge.renew()">
-          <i class="fas fa-rotate-right" aria-hidden="true"></i>
-        </button>
-        <span id="loki-started-action-loading" class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true" style="display:none;"></span>
+    <div id="loki-password-group" class="mb-2" style="display:none;">
+      <p class="mb-1"><strong>Password</strong></p>
+      <div class="input-group">
+        <input id="loki-connection-password" type="text" class="form-control user-select-all" readonly>
+        <button class="btn btn-outline-secondary" type="button" id="loki-copy-password">Copy</button>
       </div>
     </div>
   </div>

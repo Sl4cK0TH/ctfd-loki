@@ -37,6 +37,7 @@ def load(app):
 
     # ── 1. Database ──────────────────────────────────────────────
     app.db.create_all()
+    _ensure_schema(app)
 
     if not get_config("loki:setup"):
         setup_default_configs()
@@ -159,3 +160,27 @@ def _start_scheduler(app):
         seconds=30,
     )
     log.info("Loki auto-cleanup scheduler started (30s interval)")
+
+
+def _ensure_schema(app):
+    """
+    Best-effort schema update for new Loki fields.
+    """
+    try:
+        from sqlalchemy import inspect, text
+    except Exception:
+        return
+
+    try:
+        inspector = inspect(app.db.engine)
+        columns = {col["name"] for col in inspector.get_columns("loki_challenge")}
+        if "tcp_display_template" not in columns:
+            app.db.session.execute(
+                text(
+                    "ALTER TABLE loki_challenge ADD COLUMN tcp_display_template VARCHAR(32)"
+                )
+            )
+            app.db.session.commit()
+            log.info("Loki schema updated: tcp_display_template added")
+    except Exception as exc:
+        log.warning("Loki schema check failed: %s", exc)

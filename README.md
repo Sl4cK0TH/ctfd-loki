@@ -14,14 +14,14 @@ Inspired by [CTFd-whale](https://github.com/frankli0324/ctfd-whale), rebuilt fro
 
 | Feature | Description |
 |---|---|
-| **Per-player containers** | Each player gets a dedicated Docker container when they click "Start Instance" |
+| **Per-player containers** | Each player gets a dedicated Docker container when they click "Start Challenge" |
 | **Per-team mode** | Configurable — share one instance across team members |
 | **Explicit lifecycle control** | Start is blocked when an instance exists; users must stop first |
 | **Static + dynamic flags** | Admin-defined flags or auto-generated unique flags per instance |
-| **Countdown timer** | Players see remaining time; containers are auto-cleaned when expired |
 | **Renew / Stop** | Players manage their own instance lifecycle |
 | **Resource limits** | Configurable memory and CPU caps per challenge |
 | **Multi-protocol** | SSH, TCP/Netcat, HTTP — connection info adapts automatically |
+| **TCP display templates** | Netcat or HTB-style TCP display formats |
 | **Admin dashboard** | Settings page + live container management (list, renew, destroy) |
 | **Admin menu integration** | "Loki" appears in CTFd's admin sidebar |
 | **Auto-cleanup** | Background scheduler reaps expired containers every 30 seconds |
@@ -40,7 +40,7 @@ This plugin is considered **v1.0-ready** for Docker standalone deployments.
 - Admin settings and container management pages
 - Dynamic/static flag support
 - Runtime hardening controls with SSH-compatible capability profile
-- Improved SSH UX (command + password display with separate copy buttons)
+- Improved connection UX (click-to-copy host/port)
 
 ### Out of Scope for v1.0
 
@@ -125,13 +125,12 @@ Auto-cleanup (every 30s)
 |---|---|
 | CTFd | The version in this repository |
 | Python | 3.10+ |
-| Flask | 2.2.5 (inherited from CTFd) |
+| Flask | 2.1.3 (inherited from CTFd) |
 | Docker | Installed and accessible to the CTFd process |
 | Docker Socket | `/var/run/docker.sock` or TCP endpoint |
 
 Note:
-- Loki does not pin or override Flask directly.
-- Flask version is controlled by CTFd requirements (`CTFd/requirements.txt`), currently `flask==2.2.5`.
+- Loki pins Flask to avoid dependency upgrades during plugin install.
 
 ### Option A: Install Inside This Workspace's CTFd
 
@@ -152,6 +151,11 @@ Use this if your CTFd source is in this repo under `CTFd/`.
    volumes:
      - /var/run/docker.sock:/var/run/docker.sock
    ```
+    And ensure the CTFd container has Docker group access:
+    ```yaml
+    group_add:
+       - "<docker_gid>"
+    ```
 
 4. **Restart CTFd:**
    ```bash
@@ -234,6 +238,7 @@ All settings are managed through the **Admin → Loki → Settings** page.
 | Rate Limit | `60` seconds | Cooldown between container operations |
 | Start Delay | `3` seconds | Wait before showing connection info after spawn |
 | Stop Delay | `2` seconds | Wait before marking instance stopped in UI |
+| TCP Display Format | `nc` | `nc host port` or `host:port` for TCP |
 
 ---
 
@@ -260,6 +265,7 @@ Image requirements:
    - **Connection Type** — `ssh`, `tcp`, or `http`
    - **SSH Username** — shown in connection info
    - **Memory / CPU** — resource limits
+   - **TCP Display Format** — use default or override per challenge
 5. Choose **Flag Mode**:
    - **Static** → add flags manually in the "Flags" tab
    - **Dynamic** → each instance generates a unique flag from the template
@@ -276,12 +282,9 @@ Image requirements:
 ### Player Workflow
 
 1. Open the challenge
-2. Click **Start Instance** → container spins up in ~3 seconds
-3. Connection info appears with copy controls:
-   ```
-   ssh -p 49152 ctf@<SERVER_IP>
-   ```
-   For SSH challenges, Loki also shows the password for that instance.
+2. Click **Start Challenge** → container spins up in ~3 seconds
+3. Connection info appears next to the active status and is click-to-copy
+4. For SSH challenges, Loki also shows the password for that instance.
 4. Solve the challenge in your personal instance
 5. Submit the flag
 6. Click **Stop Instance** when done (or wait for auto-cleanup)
@@ -350,6 +353,7 @@ Admin compatibility fallback:
 | `redirect_port` | Integer | `22` |
 | `redirect_type` | String(32) | `"ssh"` |
 | `ssh_user` | String(64) | `"ctf"` |
+| `tcp_display_template` | String(32) | `""` |
 | `memory_limit` | String(32) | `"256m"` |
 | `cpu_limit` | Float | `0.5` |
 | `flag_mode` | String(16) | `"static"` |
@@ -429,6 +433,11 @@ exec /usr/sbin/sshd -D
    - challenge script implements `CTFd._internal.challenge` lifecycle hooks
    - submission path uses CTFd challenge attempt API flow
 - Admin create/update scripts are compatible with dynamic script loading in CTFd admin challenge pages.
+
+## Documentation
+
+- Deployment and operations: [LOKI_DEPLOY.md](LOKI_DEPLOY.md)
+- Admin and player usage: [DOCUMENTATIONS.md](DOCUMENTATIONS.md)
 
 ---
 

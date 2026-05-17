@@ -126,6 +126,14 @@
           </select>
         </div>
         <div class="col-md-4 mb-3">
+          <label class="form-label">TCP Display Format</label>
+          <select class="form-select" name="tcp_display_template" id="loki-tcp-display-template">
+            <option value="nc" {{ 'selected' if get_config('loki:tcp_display_template') != 'htb' }}>Netcat (nc host port)</option>
+            <option value="htb" {{ 'selected' if get_config('loki:tcp_display_template') == 'htb' }}>HTB (host:port)</option>
+          </select>
+          <div class="form-text" id="loki-tcp-display-preview">Preview: nc 203.0.113.10 44818</div>
+        </div>
+        <div class="col-md-4 mb-3">
           <label class="form-label">Rate Limit (seconds)</label>
           <input type="number" class="form-control" name="rate_limit_seconds"
                  value="{{ get_config('loki:rate_limit_seconds') or '60' }}">
@@ -195,42 +203,55 @@ document.getElementById('loki-settings-form').addEventListener('submit', functio
     data[inputs[i].name] = inputs[i].value;
   }
 
-  var xhr = new XMLHttpRequest();
-  xhr.open('PATCH', '/api/v1/configs', true);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
-
-  var updates = [];
+  var updates = {};
   for (var key in data) {
-    updates.push({key: 'loki:' + key, value: data[key]});
+    updates['loki:' + key] = data[key];
   }
 
-  // Send each config update
-  var completed = 0;
-  var errors = [];
-  updates.forEach(function(item) {
-    var req = new XMLHttpRequest();
-    req.open('PATCH', '/api/v1/configs/' + encodeURIComponent(item.key), true);
-    req.setRequestHeader('Content-Type', 'application/json');
-    req.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
-    req.onload = function() {
-      completed++;
-      if (req.status >= 400) errors.push(item.key);
-      if (completed === updates.length) {
-        var msg = document.getElementById('loki-settings-msg');
-        if (errors.length === 0) {
-          msg.className = 'alert alert-success mt-3';
-          msg.innerText = 'Settings saved successfully!';
-        } else {
-          msg.className = 'alert alert-danger mt-3';
-          msg.innerText = 'Error saving: ' + errors.join(', ');
-        }
-        msg.style.display = '';
-        setTimeout(function(){ msg.style.display = 'none'; }, 3000);
+  CTFd.fetch('/api/v1/configs', {
+    method: 'PATCH',
+    body: JSON.stringify(updates)
+  })
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(response) {
+      var msg = document.getElementById('loki-settings-msg');
+      if (response && response.success) {
+        msg.className = 'alert alert-success mt-3';
+        msg.innerText = 'Settings saved successfully!';
+      } else {
+        msg.className = 'alert alert-danger mt-3';
+        msg.innerText = (response && response.message) ? response.message : 'Error saving settings.';
       }
-    };
-    req.send(JSON.stringify({value: item.value}));
-  });
+      msg.style.display = '';
+      setTimeout(function(){ msg.style.display = 'none'; }, 3000);
+    })
+    .catch(function() {
+      var msg = document.getElementById('loki-settings-msg');
+      msg.className = 'alert alert-danger mt-3';
+      msg.innerText = 'Error saving settings.';
+      msg.style.display = '';
+      setTimeout(function(){ msg.style.display = 'none'; }, 3000);
+    });
 });
+
+function lokiUpdateTcpPreview() {
+  var select = document.getElementById('loki-tcp-display-template');
+  var preview = document.getElementById('loki-tcp-display-preview');
+  if (!select || !preview) {
+    return;
+  }
+  var val = select.value;
+  preview.innerText = val === 'htb'
+    ? 'Preview: 203.0.113.10:44818'
+    : 'Preview: nc 203.0.113.10 44818';
+}
+
+var tcpSelect = document.getElementById('loki-tcp-display-template');
+if (tcpSelect) {
+  tcpSelect.addEventListener('change', lokiUpdateTcpPreview);
+  lokiUpdateTcpPreview();
+}
 </script>
 {% endblock %}

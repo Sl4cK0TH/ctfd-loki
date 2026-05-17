@@ -35,6 +35,15 @@
 </div>
 
 <div class="form-group">
+  <label>TCP Display Format</label>
+  <select class="form-control custom-select" name="tcp_display_template">
+    <option value="">Use default (Loki settings)</option>
+    <option value="nc">Netcat (nc host port)</option>
+    <option value="htb">HTB (host:port)</option>
+  </select>
+</div>
+
+<div class="form-group">
   <label>SSH Username</label>
   <input type="text" class="form-control" name="ssh_user" value="ctf">
 </div>

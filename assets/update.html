@@ -35,6 +35,15 @@
 </div>
 
 <div class="form-group">
+  <label>TCP Display Format</label>
+  <select class="form-control custom-select" name="tcp_display_template">
+    <option value="" {% if not challenge.tcp_display_template %}selected{% endif %}>Use default (Loki settings)</option>
+    <option value="nc" {% if challenge.tcp_display_template == "nc" %}selected{% endif %}>Netcat (nc host port)</option>
+    <option value="htb" {% if challenge.tcp_display_template == "htb" %}selected{% endif %}>HTB (host:port)</option>
+  </select>
+</div>
+
+<div class="form-group">
   <label>SSH Username</label>
   <input type="text" class="form-control" name="ssh_user" value="{{ challenge.ssh_user }}">
 </div>

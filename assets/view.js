@@ -1,9 +1,19 @@
-CTFd._internal.challenge.data = undefined;
+CTFd._internal.challenge = CTFd._internal.challenge || {};
 
-CTFd._internal.challenge.preRender = function () {};
-CTFd._internal.challenge.postRender = function () {
-  lokiLoadInfo();
-};
+var lokiChallenge = CTFd._internal.challenge;
+if (window.challenge && window.challenge !== lokiChallenge) {
+  lokiChallenge = window.challenge;
+  CTFd._internal.challenge = lokiChallenge;
+} else if (!window.challenge) {
+  window.challenge = lokiChallenge;
+}
+
+lokiChallenge.data = undefined;
+
+// TODO: Remove in CTFd v4.0
+lokiChallenge.renderer = null;
+
+lokiChallenge.preRender = function () {};
 
 function lokiRenderText(text) {
   return text;
@@ -26,9 +36,14 @@ if (CTFd.lib && typeof CTFd.lib.markdown === "function") {
   }
 }
 
-CTFd._internal.challenge.render = lokiRenderText;
+// TODO: Remove in CTFd v4.0
+lokiChallenge.render = lokiRenderText;
 
-if (window.$ === undefined) {
+lokiChallenge.postRender = function () {
+  lokiLoadInfo();
+};
+
+if (window.$ === undefined && CTFd.lib && CTFd.lib.$) {
   window.$ = CTFd.lib.$;
 }
 
@@ -113,6 +128,7 @@ function lokiSetStartedState(responseData) {
   var parsed = lokiParseAccessInfo(responseData.user_access || "");
 
   $("#loki-connection-command").val(parsed.command);
+  $("#loki-connection-text").text(parsed.command);
   if (parsed.password) {
     $("#loki-connection-password").val(parsed.password);
     $("#loki-password-group").show();
@@ -123,6 +139,9 @@ function lokiSetStartedState(responseData) {
   $("#loki-renew-count").text(renewCount);
   $("#loki-challenge-count-down").text(lokiFormatDuration(remaining));
 
+  $("#loki-status-active").css("display", "flex");
+  $("#loki-connection-inline").css("display", "flex");
+  $("#loki-button-boot-loading").hide();
   $("#loki-panel-stopped").hide();
   $("#loki-panel-started").show();
   lokiSetActionButtonsDisabled(false);
@@ -143,9 +162,13 @@ function lokiSetStartedState(responseData) {
 
 function lokiSetStoppedState() {
   lokiClearTimer();
+  $("#loki-status-active").hide();
+  $("#loki-connection-inline").hide();
   $("#loki-panel-started").hide();
   $("#loki-panel-stopped").show();
-  $("#loki-button-boot").text("Spawn Target");
+  $("#loki-button-boot").text("Start Challenge");
+  $("#loki-spinner").removeClass("text-danger").addClass("text-primary");
+  $("#loki-starting-text").text("Challenge is spawning. Please stand by...");
   lokiSetButtonLoading("#loki-button-boot", "#loki-button-boot-loading", false);
   lokiSetStartedActionLoading(false);
   lokiSetActionButtonsDisabled(false);
@@ -208,7 +231,8 @@ function lokiCopyAccessInfo() {
     return;
   }
 
-  lokiCopyText(text, "#loki-copy-connection");
+  lokiCopyText(text, null);
+  lokiFlashInlineCopy();
 }
 
 function lokiCopyPasswordInfo() {
@@ -237,6 +261,19 @@ function lokiShowCopySuccess(buttonSelector) {
   }, 900);
 }
 
+function lokiFlashInlineCopy() {
+  var inline = $("#loki-connection-inline");
+  if (!inline.length) {
+    return;
+  }
+  inline.find(".loki-copy-hint").text("Copied");
+  inline.addClass("loki-copied");
+  setTimeout(function () {
+    inline.removeClass("loki-copied");
+    inline.find(".loki-copy-hint").text("Copy");
+  }, 900);
+}
+
 function lokiCopyText(text, buttonSelector) {
   if (!text.trim()) {
     return;
@@ -244,7 +281,9 @@ function lokiCopyText(text, buttonSelector) {
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(function () {
-      lokiShowCopySuccess(buttonSelector);
+      if (buttonSelector) {
+        lokiShowCopySuccess(buttonSelector);
+      }
     });
     return;
   }
@@ -255,7 +294,9 @@ function lokiCopyText(text, buttonSelector) {
   ta.select();
   document.execCommand("copy");
   document.body.removeChild(ta);
-  lokiShowCopySuccess(buttonSelector);
+  if (buttonSelector) {
+    lokiShowCopySuccess(buttonSelector);
+  }
 }
 
 function lokiParseAccessInfo(raw) {
@@ -291,14 +332,24 @@ $(document).on("click", "#loki-copy-connection", function () {
   lokiCopyAccessInfo();
 });
 
+$(document).off("click", "#loki-connection-inline");
+$(document).on("click", "#loki-connection-inline", function () {
+  lokiCopyAccessInfo();
+});
+
+$(document).off("click", "#loki-connection-text");
+$(document).on("click", "#loki-connection-text", function () {
+  lokiCopyAccessInfo();
+});
+
 $(document).off("click", "#loki-copy-password");
 $(document).on("click", "#loki-copy-password", function () {
   lokiCopyPasswordInfo();
 });
 
-CTFd._internal.challenge.boot = function () {
+lokiChallenge.boot = function () {
   var button = $("#loki-button-boot");
-  button.text("Spawn Target");
+  button.text("Start Challenge");
   lokiSetActionButtonsDisabled(true);
   lokiSetButtonLoading("#loki-button-boot", "#loki-button-boot-loading", true);
 
@@ -309,7 +360,7 @@ CTFd._internal.challenge.boot = function () {
           response.data && response.data.start_delay_seconds
             ? response.data.start_delay_seconds
             : 0;
-        button.text("Spawn Target");
+        button.text("Start Challenge");
         lokiScheduleReload(delay);
       } else {
         lokiAlert("Spawn Failed", response.message || "Failed to start instance");
@@ -332,7 +383,7 @@ CTFd._internal.challenge.boot = function () {
     })
     .finally(function () {
       if (lokiPendingTimer === null) {
-        button.text("Spawn Target");
+        button.text("Start Challenge");
         lokiSetButtonLoading(
           "#loki-button-boot",
           "#loki-button-boot-loading",
@@ -342,14 +393,17 @@ CTFd._internal.challenge.boot = function () {
     });
 };
 
-CTFd._internal.challenge.destroy = function () {
-  var proceed = window.confirm("Stop this instance now?");
-  if (!proceed) {
-    return;
-  }
-
+lokiChallenge.destroy = function () {
   lokiSetActionButtonsDisabled(true);
   lokiSetStartedActionLoading(true);
+  $("#loki-panel-started").hide();
+  $("#loki-status-active").hide();
+  $("#loki-connection-inline").hide();
+  $("#loki-panel-stopped").hide();
+  $("#loki-button-boot").hide();
+  $("#loki-spinner").removeClass("text-primary").addClass("text-danger");
+  $("#loki-starting-text").text("Stopping challenge, please wait...");
+  $("#loki-button-boot-loading").show();
 
   lokiRequest("DELETE")
     .then(function (response) {
@@ -363,12 +417,14 @@ CTFd._internal.challenge.destroy = function () {
         lokiAlert("Stop Failed", response.message || "Failed to stop instance");
         lokiSetActionButtonsDisabled(false);
         lokiSetStartedActionLoading(false);
+        $("#loki-button-boot-loading").hide();
       }
     })
     .catch(function () {
       lokiAlert("Stop Failed", "Failed to stop instance");
       lokiSetActionButtonsDisabled(false);
       lokiSetStartedActionLoading(false);
+      $("#loki-button-boot-loading").hide();
     })
     .finally(function () {
       if (lokiPendingTimer === null) {
@@ -377,7 +433,7 @@ CTFd._internal.challenge.destroy = function () {
     });
 };
 
-CTFd._internal.challenge.renew = function () {
+lokiChallenge.renew = function () {
   var proceed = window.confirm("Renew this instance timer?");
   if (!proceed) {
     return;

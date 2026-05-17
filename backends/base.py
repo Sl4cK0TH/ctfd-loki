@@ -7,6 +7,8 @@ All container backends must implement this interface.
 
 from abc import ABC, abstractmethod
 
+from ..config import get_loki_config
+
 
 class BackendBase(ABC):
     """
@@ -79,12 +81,17 @@ class BackendBase(ABC):
         str
         """
         port = container_record.port
-        redirect_type = challenge.redirect_type or "tcp"
+        redirect_type = (challenge.redirect_type or "tcp").strip().lower()
 
         if redirect_type == "ssh":
             user = challenge.ssh_user or "ctf"
             return f"ssh -p {port} {user}@{{SERVER_IP}}"
-        elif redirect_type == "http":
+        if redirect_type == "http":
             return f"http://{{SERVER_IP}}:{port}"
-        else:
-            return f"nc {{SERVER_IP}} {port}"
+
+        template = (getattr(challenge, "tcp_display_template", "") or "").strip().lower()
+        if not template:
+            template = str(get_loki_config("tcp_display_template", "nc")).strip().lower()
+        if template == "htb":
+            return f"{{SERVER_IP}}:{port}"
+        return f"nc {{SERVER_IP}} {port}"

@@ -81,31 +81,45 @@
 
 <script>
 function lokiAdminRenew(containerId) {
-  var xhr = new XMLHttpRequest();
-  xhr.open('PATCH', '/api/v1/plugins/ctfd-loki/admin/container?container_id=' + containerId, true);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
-  xhr.onload = function() {
-    if (xhr.status === 200) {
-      location.reload();
-    } else {
+  CTFd.fetch('/api/v1/plugins/ctfd-loki/admin/container?container_id=' + containerId, {
+    method: 'PATCH'
+  })
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(response) {
+      if (response && response.success) {
+        location.reload();
+      } else {
+        alert((response && response.message) ? response.message : 'Failed to renew');
+      }
+    })
+    .catch(function() {
       alert('Failed to renew');
-    }
-  };
-  xhr.send();
+    });
 }
 
 function lokiAdminDestroy(containerId) {
   if (!confirm('Destroy this container?')) return;
-  var xhr = new XMLHttpRequest();
-  xhr.open('DELETE', '/api/v1/plugins/ctfd-loki/admin/container?container_id=' + containerId, true);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.setRequestHeader('CSRF-Token', '{{ session.nonce }}');
-  xhr.onload = function() {
-    var row = document.getElementById('row-' + containerId);
-    if (row) row.remove();
-  };
-  xhr.send();
+  CTFd.fetch('/api/v1/plugins/ctfd-loki/admin/container?container_id=' + containerId, {
+    method: 'DELETE'
+  })
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(response) {
+      if (response && response.success) {
+        var row = document.getElementById('row-' + containerId);
+        if (row) {
+          row.remove();
+        }
+      } else {
+        alert((response && response.message) ? response.message : 'Failed to destroy');
+      }
+    })
+    .catch(function() {
+      alert('Failed to destroy');
+    });
 }
 </script>
 {% endblock %}

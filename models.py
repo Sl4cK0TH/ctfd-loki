@@ -35,6 +35,7 @@ class LokiChallenge(Challenges):
     redirect_port = db.Column(db.Integer, default=22)
     redirect_type = db.Column(db.String(32), default="ssh")
     ssh_user = db.Column(db.String(64), default="ctf")
+    tcp_display_template = db.Column(db.String(32), default="")
 
     # ── Resource limits ──────────────────────────────────────────
     memory_limit = db.Column(db.String(32), default="256m")
@@ -63,6 +64,14 @@ class LokiContainer(db.Model):
     """
 
     __tablename__ = "loki_containers"
+    __table_args__ = (
+        db.Index("ix_loki_containers_user_id", "user_id"),
+        db.Index("ix_loki_containers_team_id", "team_id"),
+        db.Index("ix_loki_containers_challenge_id", "challenge_id"),
+        db.Index("ix_loki_containers_start_time", "start_time"),
+        db.Index("ix_loki_containers_user_challenge", "user_id", "challenge_id"),
+        db.Index("ix_loki_containers_team_challenge", "team_id", "challenge_id"),
+    )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(

@@ -11,8 +11,9 @@ from datetime import datetime
 
 from flask import request
 from flask_restx import Namespace, Resource, abort
+from sqlalchemy.orm import joinedload
 
-from CTFd.models import db
+from CTFd.models import db, Users, Teams
 from CTFd.utils import get_config
 from CTFd.utils import user as current_user
 from CTFd.utils.decorators import admins_only, authed_only
@@ -108,6 +109,18 @@ def _resolve_public_host():
     return "127.0.0.1"
 
 
+def _lock_owner_row(user_id, team_id=None):
+    """
+    Acquire a row-level lock on the user or team to serialize container start.
+    No-op on backends that do not support SELECT ... FOR UPDATE.
+    """
+    scope = get_loki_config("container_scope", "user")
+    if scope == "team" and team_id:
+        Teams.query.filter_by(id=team_id).with_for_update().first()
+    else:
+        Users.query.filter_by(id=user_id).with_for_update().first()
+
+
 def _is_container_running(container):
     """Best-effort running-state check against the backend runtime."""
     try:
@@ -133,7 +146,16 @@ class AdminContainers(Resource):
         offset = per_page * (page - 1)
 
         total = LokiContainer.query.count()
-        containers = LokiContainer.query.offset(offset).limit(per_page).all()
+        containers = (
+            LokiContainer.query.options(
+                joinedload(LokiContainer.user),
+                joinedload(LokiContainer.challenge),
+            )
+            .order_by(LokiContainer.id.desc())
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
 
         timeout = int(get_loki_config("docker_timeout", "3600"))
         data = []
@@ -271,6 +293,9 @@ class UserContainers(Resource):
         """Start a new container instance."""
         user_id, team_id = _get_owner_id()
         challenge_id = request.args.get("challenge_id", type=int)
+
+        # Lock owner row to reduce concurrent start races.
+        _lock_owner_row(user_id, team_id)
 
         # Block if an instance is already running. User must stop it first.
         existing = _get_existing_container(user_id, team_id)
