@@ -128,6 +128,8 @@ Auto-cleanup (every 30s)
 | Flask | 2.1.3 (inherited from CTFd) |
 | Docker | Installed and accessible to the CTFd process |
 | Docker Socket | `/var/run/docker.sock` or TCP endpoint |
+| Docker SDK | Installed via plugin requirements |
+| Flask-APScheduler | Installed via plugin requirements |
 
 Note:
 - Loki pins Flask to avoid dependency upgrades during plugin install.
@@ -192,6 +194,11 @@ Use this if your CTFd deployment is elsewhere.
    volumes:
      - /var/run/docker.sock:/var/run/docker.sock
    ```
+    And ensure the CTFd container has Docker group access:
+    ```yaml
+    group_add:
+       - "<docker_gid>"
+    ```
 
 4. **Start CTFd.** The plugin auto-creates database tables and default settings on first launch.
 
